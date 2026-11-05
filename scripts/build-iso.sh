@@ -10,8 +10,9 @@ dnf install -y lorax skopeo curl xorriso
 echo "=== 2. Descargando Fedora 41 Everything Netinst oficial (944 MB) ==="
 curl -Lo /tmp/boot.iso "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/41/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-41-1.4.iso"
 
-echo "=== 3. Exportando contenedor Bazzite completo como OCI Archive OFFLINE (~3.5 GB) ==="
-skopeo copy --insecure-policy "docker://ghcr.io/${REPO_OWNER}/bazzite-galaxybook-deck:latest" "oci-archive:/tmp/container.tar.gz"
+echo "=== 3. Exportando contenedor Bazzite como OCI Layout nativo (Sin tar.gz, blobs puros) ==="
+mkdir -p /tmp/bazzite-galaxybook-deck
+skopeo copy --insecure-policy "docker://ghcr.io/${REPO_OWNER}/bazzite-galaxybook-deck:latest" "oci:/tmp/bazzite-galaxybook-deck"
 
 echo "=== 4. Creando archivo Kickstart 100% NO-INTERACTIVO (CMDLINE) Y REMAP DE TECLA ENTER ==="
 cat > "${WORK_DIR}/galaxybook.ks" << 'EOF'
@@ -19,16 +20,28 @@ cmdline
 keyboard us
 lang en_US.UTF-8
 timezone America/New_York
+rootpw --lock
+user --name=bazzite --groups=wheel --plaintext --password=bazzite
 
-# Formateo automatico completo a ciegas (Zero prompts, Zero clicks, Zero Enter)
+# Formateo automatico completo al NVMe (Zero prompts, Zero clicks, Zero Enter)
+ignoredisk --only-use=nvme0n1
 zerombr
-clearpart --all --initlabel
+clearpart --all --initlabel --drives=nvme0n1
 autopart --type=btrfs
 
-# Instalacion 100% OFFLINE desde el archivo incrustado en el USB (Sin Wi-Fi ni Hotspot)
-ostreecontainer --transport oci-archive --url /container.tar.gz --no-signature-verification
+# Instalacion 100% OFFLINE desde directorio OCI sin comprimir (Sin tar.gz que sature RAM)
+ostreecontainer --transport oci --url /run/install/repo/bazzite-galaxybook-deck --no-signature-verification
 
 reboot
+
+# Script Pre-Instalacion: Limpieza de firmas residuales del NVMe
+%pre
+swapoff -a || true
+vgchange -an || true
+dmsetup remove_all -f || true
+wipefs -a -f /dev/nvme0n1 || true
+sgdisk --zap-all /dev/nvme0n1 || true
+%end
 
 # Script Post-Instalacion: Remapea la tecla directamente arriba de Enter (\ / | backslash) como ENTER
 %post --erroronfail
@@ -53,8 +66,8 @@ udevadm trigger || true
 %end
 EOF
 
-echo "=== 5. Inyectando Kickstart, Parche de Grub Timeout y Contenedor Offline con mkksiso ==="
-mkksiso --cmdline "inst.cmdline quiet" -a /tmp/container.tar.gz --ks "${WORK_DIR}/galaxybook.ks" /tmp/boot.iso "${WORK_DIR}/bazzite-galaxybook-tigerlake-offline.iso"
+echo "=== 5. Inyectando Kickstart, Eliminando rd.live.check y Añadiendo OCI nativo con mkksiso ==="
+mkksiso --cmdline "inst.cmdline quiet" --rm-args rd.live.check -a /tmp/bazzite-galaxybook-deck --ks "${WORK_DIR}/galaxybook.ks" /tmp/boot.iso "${WORK_DIR}/bazzite-galaxybook-tigerlake-offline.iso"
 
 echo "=== 6. Generando Checksum SHA256 ==="
 cd "${WORK_DIR}"
