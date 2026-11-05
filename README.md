@@ -35,7 +35,10 @@ Repositorio de construcción de imagen inmutable OCI / ISO basada en **`ghcr.io/
    * El binario nativo de `tun2socks` viene pre-empaquetado dentro de la ISO. No requiere descargar nada por internet.
    * Daemon automático (`galaxybook-iphone-tunnel.service`): En cuanto la laptop se conecta a la Wi-Fi del Hotspot del iPhone (`172.20.10.1:10808`), levanta la interfaz virtual `tun69`, configura DNS y enruta el 100% del tráfico de Steam, Proton, Antigravity y la terminal a través del iPhone.
    * Accesos directos para encender o apagar el túnel con un clic en Steam Big Picture o en la terminal (`iphone-tunnel start` / `iphone-tunnel stop`).
-7. **Antigravity AI Preinstalado:**
+7. **JDownloader 2 Preinstalado de Fábrica:**
+   * Empaquetado de forma nativa con runtime OpenJDK 21.
+   * Lanzador global en `/usr/bin/jdownloader` y acceso directo en el menú de aplicaciones de escritorio y Steam.
+8. **Antigravity AI Preinstalado:**
    * Entorno y lanzador de Antigravity (`/usr/bin/antigravity`) listo para usar en Modo Escritorio o desde la terminal.
 
 ---
