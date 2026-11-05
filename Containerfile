@@ -1,7 +1,7 @@
 # ==============================================================================
 # Containerfile para Bazzite-Deck Hiper-Optimizado para Samsung Galaxy Book Flex2 Alpha
 # Target: Intel Core i7-1165G7 (Tiger Lake) + Iris Xe G7 96 EUs (8086:9a49)
-# Soporte integral: Audio SOF, Lector de Huellas, Rotación 2-en-1, Teclado, RAPL
+# Soporte integral: Audio SOF, Huella, Rotación 2-en-1, Hotspot iPhone Nativo (tun2socks)
 # ==============================================================================
 
 FROM --platform=linux/amd64 ghcr.io/ublue-os/bazzite-deck:stable
@@ -20,18 +20,22 @@ COPY config/gamescope-custom-res.conf /usr/share/gamescope/galaxybook-resolution
 COPY services/galaxybook-power-optimizer.sh /usr/libexec/galaxybook-power-optimizer.sh
 COPY services/galaxybook-game-injector.sh /usr/libexec/galaxybook-game-injector.sh
 COPY services/galaxybook-audio-fix.sh /usr/libexec/galaxybook-audio-fix.sh
+COPY services/galaxybook-iphone-tunnel.sh /usr/libexec/galaxybook-iphone-tunnel.sh
+
 COPY services/systemd/galaxybook-power-optimizer.service /usr/lib/systemd/system/galaxybook-power-optimizer.service
 COPY services/systemd/galaxybook-game-injector.service /usr/lib/systemd/system/galaxybook-game-injector.service
 COPY services/systemd/galaxybook-audio-fix.service /usr/lib/systemd/system/galaxybook-audio-fix.service
+COPY services/systemd/galaxybook-iphone-tunnel.service /usr/lib/systemd/system/galaxybook-iphone-tunnel.service
 
 # 3. Copiar plantillas quirúrgicas de juegos (UE5, RE Engine, TLOU, Horizon)
 COPY game-optimizations/ /usr/share/game-optimizations/
 
-# 4. Copiar scripts de integración (Antigravity AI y Lector de Huellas)
+# 4. Copiar scripts de integración (Antigravity AI, Lector de Huellas, Túnel iPhone)
 COPY scripts/install-antigravity.sh /tmp/install-antigravity.sh
 COPY scripts/setup-fingerprint.sh /tmp/setup-fingerprint.sh
+COPY scripts/setup-iphone-tunnel.sh /tmp/setup-iphone-tunnel.sh
 
-# 5. Instalación de paquetes específicos de hardware Samsung (Huella, Sensores 2-en-1, Audio SOF)
+# 5. Instalación de paquetes de hardware y pre-empaquetado offline de tun2socks
 RUN rpm-ostree install --apply-live=no \
         fprintd \
         fprintd-pam \
@@ -47,16 +51,28 @@ RUN rpm-ostree install --apply-live=no \
         libva-utils \
         intel-media-driver \
         jq \
+        unzip \
         rsync && \
     chmod +x /usr/libexec/galaxybook-*.sh \
              /usr/share/game-optimizations/*.sh \
              /tmp/install-antigravity.sh \
-             /tmp/setup-fingerprint.sh && \
+             /tmp/setup-fingerprint.sh \
+             /tmp/setup-iphone-tunnel.sh && \
+    # Pre-integrar binario nativo de tun2socks x86_64 para funcionamiento 100% offline
+    curl -fsSL https://github.com/xjasonlyu/tun2socks/releases/latest/download/tun2socks-linux-amd64.zip -o /tmp/tun2socks.zip && \
+    unzip -q /tmp/tun2socks.zip -d /tmp/tun2socks_extracted && \
+    mv /tmp/tun2socks_extracted/tun2socks-linux-amd64 /usr/bin/tun2socks && \
+    chmod +x /usr/bin/tun2socks && \
+    rm -rf /tmp/tun2socks* && \
+    # Ejecutar scripts de integración de sistema
     /tmp/install-antigravity.sh && \
     /tmp/setup-fingerprint.sh && \
-    rm -f /tmp/install-antigravity.sh /tmp/setup-fingerprint.sh && \
+    /tmp/setup-iphone-tunnel.sh && \
+    rm -f /tmp/install-antigravity.sh /tmp/setup-fingerprint.sh /tmp/setup-iphone-tunnel.sh && \
+    # Habilitar servicios systemd esenciales
     systemctl enable galaxybook-power-optimizer.service && \
     systemctl enable galaxybook-game-injector.service && \
     systemctl enable galaxybook-audio-fix.service && \
+    systemctl enable galaxybook-iphone-tunnel.service && \
     systemctl enable iio-sensor-proxy.service && \
     ostree container commit

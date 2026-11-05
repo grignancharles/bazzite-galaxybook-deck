@@ -1,0 +1,15 @@
+[Unit]
+Description=Galaxy Book Native iPhone SOCKS5 Tunnel Daemon (tun2socks)
+After=network-online.target NetworkManager.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/galaxybook-iphone-tunnel.sh auto
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

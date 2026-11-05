@@ -31,7 +31,11 @@ Repositorio de construcción de imagen inmutable OCI / ISO basada en **`ghcr.io/
 5. **Inyección Quirúrgica de Juegos (`galaxybook-game-injector`):**
    * Monitor automático que detecta el primer arranque de juegos como **Silent Hill 2 Remake**, **The Last of Us**, **Resident Evil** y **Horizon Forbidden West**.
    * Inyecta archivos `Engine.ini` desmantelando Lumen y Virtual Shadow Maps (retornando a rasterizado tipo PS4/UE4), inyecta OptiScaler con **Intel XeSS DP4a**, y restringe memoria de streaming.
-6. **Antigravity AI Preinstalado:**
+6. **Túnel Nativo SOCKS5 para iPhone (`tun2socks` - 100% Offline):**
+   * El binario nativo de `tun2socks` viene pre-empaquetado dentro de la ISO. No requiere descargar nada por internet.
+   * Daemon automático (`galaxybook-iphone-tunnel.service`): En cuanto la laptop se conecta a la Wi-Fi del Hotspot del iPhone (`172.20.10.1:10808`), levanta la interfaz virtual `tun69`, configura DNS y enruta el 100% del tráfico de Steam, Proton, Antigravity y la terminal a través del iPhone.
+   * Accesos directos para encender o apagar el túnel con un clic en Steam Big Picture o en la terminal (`iphone-tunnel start` / `iphone-tunnel stop`).
+7. **Antigravity AI Preinstalado:**
    * Entorno y lanzador de Antigravity (`/usr/bin/antigravity`) listo para usar en Modo Escritorio o desde la terminal.
 
 ---
