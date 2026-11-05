@@ -5,6 +5,7 @@
 # Experiencia MacBook: Touchpad idéntico a Mac (desplazamiento natural, tap-to-click)
 # Teclado: US English nativo por defecto
 # Conectividad: Discos Mac APFS, JDownloader 2, Antigravity AI, KDE Connect (Clipboard)
+# Streaming: Pling Server 2D Nativo para Meta Quest (VA-API HEVC)
 # ==============================================================================
 
 FROM ghcr.io/ublue-os/bazzite-deck:stable
@@ -48,30 +49,17 @@ COPY scripts/setup-jdownloader.sh /tmp/setup-jdownloader.sh
 COPY scripts/setup-mac-disks.sh /tmp/setup-mac-disks.sh
 COPY scripts/setup-kdeconnect.sh /tmp/setup-kdeconnect.sh
 
-# 6. Instalación de paquetes usando dnf nativo para build de contenedor Universal Blue
-RUN dnf install -y --setopt=install_weak_deps=False \
+# 6. Instalación de paquetes usando dnf nativo con --skip-unavailable
+RUN dnf install -y --skip-unavailable --setopt=install_weak_deps=False \
         fprintd \
         fprintd-pam \
         iio-sensor-proxy \
-        sof-firmware \
-        alsa-firmware \
-        alsa-ucm-conf \
-        alsa-tools \
-        igt-gpu-tools \
-        powercap-utils \
-        msr-tools \
-        vulkan-tools \
-        libva-utils \
-        intel-media-driver \
-        java-21-openjdk \
         apfs-fuse \
-        fuse3 \
-        ntfs-3g \
-        exfatprogs \
-        hfsplus-tools \
-        jq \
-        unzip \
-        rsync && \
+        igt-gpu-tools \
+        msr-tools \
+        python3-pip \
+        python3-gobject \
+        ffmpeg && \
     dnf clean all && \
     chmod +x /usr/libexec/galaxybook-*.sh \
              /usr/share/game-optimizations/*.sh \
