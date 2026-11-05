@@ -31,18 +31,21 @@ Repositorio de construcción de imagen inmutable OCI / ISO basada en **`ghcr.io/
 5. **Inyección Quirúrgica de Juegos (`galaxybook-game-injector`):**
    * Monitor automático que detecta el primer arranque de juegos como **Silent Hill 2 Remake**, **The Last of Us**, **Resident Evil** y **Horizon Forbidden West**.
    * Inyecta archivos `Engine.ini` desmantelando Lumen y Virtual Shadow Maps (retornando a rasterizado tipo PS4/UE4), inyecta OptiScaler con **Intel XeSS DP4a**, y restringe memoria de streaming.
-6. **Túnel Nativo SOCKS5 para iPhone (`tun2socks` - 100% Offline):**
-   * El binario nativo de `tun2socks` viene pre-empaquetado dentro de la ISO. No requiere descargar nada por internet.
-   * Daemon automático (`galaxybook-iphone-tunnel.service`): En cuanto la laptop se conecta a la Wi-Fi del Hotspot del iPhone (`172.20.10.1:10808`), levanta la interfaz virtual `tun69`, configura DNS y enruta el 100% del tráfico de Steam, Proton, Antigravity y la terminal a través del iPhone.
-   * Accesos directos para encender o apagar el túnel con un clic en Steam Big Picture o en la terminal (`iphone-tunnel start` / `iphone-tunnel stop`).
-7. **JDownloader 2 Preinstalado de Fábrica:**
+6. **Túnel Nativo para iPhone (100% Automático y Plug & Play):**
+   * Cero botones manuales: el túnel corre como un demonio transparente en segundo plano. En cuanto conectas la laptop al Hotspot del iPhone, `tun2socks` levanta `tun69` y enruta el 100% del tráfico automáticamente.
+7. **Experiencia MacBook en Touchpad y Teclado US:**
+   * **Touchpad:** Configurado idéntico a una MacBook (Desplazamiento natural, tap-to-click, clic derecho con 2 dedos en cualquier parte del trackpad, aceleración adaptativa suave).
+   * **Teclado:** Distribución en Inglés de EE.UU. (`us`) por defecto.
+8. **Portapapeles Universal Compartido (iPhone / Mac / Bazzite):**
+   * Integración con **KDE Connect**: copia texto en tu iPhone o Mac y pégalo instantáneamente en tu Samsung Galaxy Book (y viceversa).
+9. **JDownloader 2 Preinstalado de Fábrica:**
    * Empaquetado de forma nativa con runtime OpenJDK 21.
    * Lanzador global en `/usr/bin/jdownloader` y acceso directo en el menú de aplicaciones de escritorio y Steam.
-8. **Soporte Nativo para Discos Externos de Mac (APFS / HFS+) y Windows (NTFS / exFAT):**
+10. **Soporte Nativo para Discos Externos de Mac (APFS / HFS+) y Windows (NTFS / exFAT):**
    * Incluye el driver `apfs-fuse` para leer discos duros formateados en macOS (como tu disco externo de 1 TB `MessiEnto`).
    * Herramienta y acceso directo de 1 clic: `Abrir Disco Externo Mac (APFS)` (`mount-mac-disk`).
    * Soporte completo para `ntfs-3g`, `exfatprogs` y `hfsprogs`.
-9. **Antigravity AI Preinstalado:**
+11. **Antigravity AI Preinstalado:**
    * Entorno y lanzador de Antigravity (`/usr/bin/antigravity`) listo para usar en Modo Escritorio o desde la terminal.
 
 ---

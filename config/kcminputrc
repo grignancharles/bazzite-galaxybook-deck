@@ -1,0 +1,12 @@
+[Libinput][*]
+naturalScroll=true
+tapToClick=true
+clickMethod=2
+scrollMethod=1
+pointerAcceleration=0.15
+pointerAccelerationProfile=1
+disableWhileTyping=true
+lrmTapButtonMap=true
+
+[Mouse]
+cursorTheme=breeze_cursors
