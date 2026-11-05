@@ -1,0 +1,106 @@
+name: Build Bazzite Galaxy Book ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'flash_to_usb_mac.sh'
+
+env:
+  IMAGE_NAME: bazzite-galaxybook-deck
+  IMAGE_TAG: latest
+
+jobs:
+  build-image:
+    name: Build OCI Image (x86_64)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase image name
+        id: image_name
+        run: echo "IMAGE_REF=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]' >> "$GITHUB_OUTPUT"
+
+      - name: Build and Push Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Containerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.image_name.outputs.IMAGE_REF }}:${{ env.IMAGE_TAG }}
+            ${{ steps.image_name.outputs.IMAGE_REF }}:${{ github.sha }}
+
+  build-iso:
+    name: Generate Bootable USB ISO
+    needs: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Lowercase image name
+        id: image_name
+        run: echo "IMAGE_REF=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]' >> "$GITHUB_OUTPUT"
+
+      - name: Build Bootable ISO
+        uses: jasonn3/build-container-installer@v1.2.4
+        with:
+          arch: x86_64
+          image_name: ${{ env.IMAGE_NAME }}
+          image_repo: ghcr.io/${{ github.repository_owner }}
+          image_tag: latest
+          iso_name: bazzite-galaxybook-tigerlake.iso
+          variant: Bazzite-Deck
+          version: stable
+
+      - name: Upload ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bazzite-galaxybook-tigerlake-iso
+          path: |
+            *.iso
+            *.sha256
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/heads/main')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Bazzite Galaxy Book Flex2 Alpha v1.0.${{ github.run_number }}
+          body: |
+            ## Imagen Lista para Flashear en USB
+            - **Target:** Samsung Galaxy Book Flex2 Alpha (NP730QDA)
+            - **CPU/GPU:** Intel Core i7-1165G7 / Iris Xe 96 EUs
+            - **Optimizaciones:** RAPL 28W/35W, CPU cap 3.2GHz en Gamescope, ZRAM lz4, plantillas UE5/RE Engine/TLOU.
+            - **Antigravity AI:** Preinstalado.
+          files: |
+            *.iso
+            *.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,5 @@
+*.iso
+*.sha256
+.DS_Store
+.vscode/
+.idea/

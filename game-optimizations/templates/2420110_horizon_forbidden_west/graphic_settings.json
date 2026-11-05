@@ -1,0 +1,23 @@
+{
+  "GraphicSettings": {
+    "DisplayMode": "ExclusiveFullscreen",
+    "Resolution": "1280x720",
+    "RefreshRate": 60,
+    "TargetFrameRate": 30,
+    "VSync": true,
+    "DynamicResolutionScaling": true,
+    "DynamicResolutionTarget": 30,
+    "Upscaling": "IntelXeSS",
+    "XeSSQuality": "Balanced",
+    "TextureQuality": "Medium",
+    "TextureFiltering": "16x",
+    "ShadowQuality": "Low",
+    "ScreenSpaceReflections": "Off",
+    "AmbientOcclusion": "SSAO",
+    "VolumetricClouds": "VeryLow",
+    "WaterQuality": "Low",
+    "CrowdDensity": "Low",
+    "MotionBlur": "Off",
+    "DepthOfField": "Low"
+  }
+}

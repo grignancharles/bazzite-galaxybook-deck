@@ -1,0 +1,2 @@
+# Comando de lanzamiento de Steam para REFramework en Bazzite / Proton:
+WINEDLLOVERRIDES="dinput8=n,b" %command%

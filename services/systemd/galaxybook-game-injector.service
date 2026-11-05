@@ -1,0 +1,15 @@
+[Unit]
+Description=Galaxy Book Steam Games Surgical Auto-Optimizer and Injector
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/galaxybook-game-injector.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

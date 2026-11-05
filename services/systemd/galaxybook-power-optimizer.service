@@ -1,0 +1,15 @@
+[Unit]
+Description=Galaxy Book Tiger Lake Power, Thermal and GPU Optimizer Daemon
+After=network.target multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/galaxybook-power-optimizer.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
