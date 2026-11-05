@@ -75,32 +75,7 @@ jobs:
 
       - name: Build Bootable ISO with mkksiso
         run: |
-          docker run --privileged --rm -v ${{ github.workspace }}:/work -w /work fedora:41 bash -c "
-            set -euxo pipefail
-            dnf install -y lorax curl
-            echo 'Descargando Fedora Everything Boot ISO oficial...'
-            curl -Lo /tmp/boot.iso https://download.fedoraproject.org/pub/fedora/linux/releases/41/Everything/x86_64/os/images/boot.iso
-            
-            cat << 'EOF' > /work/ks.cfg
-            # Kickstart instalador Bazzite SteamOS para Samsung Galaxy Book
-            text
-            keyboard us
-            lang en_US.UTF-8
-            timezone America/New_York
-            network --bootproto=dhcp --device=link --activate
-            
-            # Instalar directamente el contenedor Bazzite personalizado
-            ostreecontainer --url=ghcr.io/${{ github.repository_owner }}/bazzite-galaxybook-deck:latest --transport=registry --no-signature-verification
-            
-            reboot
-            EOF
-
-            echo 'Inyectando Kickstart y generando ISO booteable...'
-            mkksiso --ks /work/ks.cfg /tmp/boot.iso /work/bazzite-galaxybook-tigerlake.iso
-            
-            sha256sum /work/bazzite-galaxybook-tigerlake.iso > /work/bazzite-galaxybook-tigerlake.iso.sha256
-            ls -lh /work/bazzite-galaxybook-tigerlake.iso
-          "
+          docker run --privileged --rm -v ${{ github.workspace }}:/work -w /work fedora:41 /work/scripts/build-iso.sh ${{ github.repository_owner }}
 
       - name: Upload ISO Artifact
         uses: actions/upload-artifact@v4
