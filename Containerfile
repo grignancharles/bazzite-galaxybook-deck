@@ -7,7 +7,7 @@
 # Conectividad: Discos Mac APFS, JDownloader 2, Antigravity AI, KDE Connect (Clipboard)
 # ==============================================================================
 
-FROM --platform=linux/amd64 ghcr.io/ublue-os/bazzite-deck:stable
+FROM ghcr.io/ublue-os/bazzite-deck:stable
 
 LABEL maintainer="Antigravity Custom SteamOS Builder"
 LABEL description="Bazzite Deck image customized exclusively for Samsung Galaxy Book Flex2 Alpha (NP730QDA)"
@@ -48,8 +48,8 @@ COPY scripts/setup-jdownloader.sh /tmp/setup-jdownloader.sh
 COPY scripts/setup-mac-disks.sh /tmp/setup-mac-disks.sh
 COPY scripts/setup-kdeconnect.sh /tmp/setup-kdeconnect.sh
 
-# 6. Instalación de paquetes de hardware, Java, drivers de sistemas de archivos y herramientas
-RUN rpm-ostree install --apply-live=no \
+# 6. Instalación de paquetes usando dnf nativo para build de contenedor Universal Blue
+RUN dnf install -y --setopt=install_weak_deps=False \
         fprintd \
         fprintd-pam \
         iio-sensor-proxy \
@@ -57,8 +57,8 @@ RUN rpm-ostree install --apply-live=no \
         alsa-firmware \
         alsa-ucm-conf \
         alsa-tools \
-        intel-gpu-tools \
-        powercap \
+        igt-gpu-tools \
+        powercap-utils \
         msr-tools \
         vulkan-tools \
         libva-utils \
@@ -68,10 +68,11 @@ RUN rpm-ostree install --apply-live=no \
         fuse3 \
         ntfs-3g \
         exfatprogs \
-        hfsprogs \
+        hfsplus-tools \
         jq \
         unzip \
         rsync && \
+    dnf clean all && \
     chmod +x /usr/libexec/galaxybook-*.sh \
              /usr/share/game-optimizations/*.sh \
              /tmp/install-antigravity.sh \
@@ -94,10 +95,10 @@ RUN rpm-ostree install --apply-live=no \
     /tmp/setup-mac-disks.sh && \
     /tmp/setup-kdeconnect.sh && \
     rm -f /tmp/install-antigravity.sh /tmp/setup-fingerprint.sh /tmp/setup-iphone-tunnel.sh /tmp/setup-jdownloader.sh /tmp/setup-mac-disks.sh /tmp/setup-kdeconnect.sh && \
-    # Habilitar servicios systemd esenciales
-    systemctl enable galaxybook-power-optimizer.service && \
-    systemctl enable galaxybook-game-injector.service && \
-    systemctl enable galaxybook-audio-fix.service && \
-    systemctl enable galaxybook-iphone-tunnel.service && \
-    systemctl enable iio-sensor-proxy.service && \
-    ostree container commit
+    # Habilitar servicios inmutables en systemd mediante enlaces simbólicos limpios
+    mkdir -p /usr/lib/systemd/system/multi-user.target.wants && \
+    ln -sf /usr/lib/systemd/system/galaxybook-power-optimizer.service /usr/lib/systemd/system/multi-user.target.wants/ && \
+    ln -sf /usr/lib/systemd/system/galaxybook-game-injector.service /usr/lib/systemd/system/multi-user.target.wants/ && \
+    ln -sf /usr/lib/systemd/system/galaxybook-audio-fix.service /usr/lib/systemd/system/multi-user.target.wants/ && \
+    ln -sf /usr/lib/systemd/system/galaxybook-iphone-tunnel.service /usr/lib/systemd/system/multi-user.target.wants/ && \
+    ln -sf /usr/lib/systemd/system/iio-sensor-proxy.service /usr/lib/systemd/system/multi-user.target.wants/
