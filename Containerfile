@@ -2,6 +2,7 @@
 # Containerfile para Bazzite-Deck Hiper-Optimizado para Samsung Galaxy Book Flex2 Alpha
 # Target: Intel Core i7-1165G7 (Tiger Lake) + Iris Xe G7 96 EUs (8086:9a49)
 # Soporte integral: Audio SOF, Huella, Rotación 2-en-1, Hotspot iPhone Nativo (tun2socks)
+# Soporte de Discos Externos: Apple APFS (apfs-fuse), HFS+, NTFS, exFAT
 # Apps Nativas Pre-instaladas: Antigravity AI, JDownloader 2
 # ==============================================================================
 
@@ -31,13 +32,14 @@ COPY services/systemd/galaxybook-iphone-tunnel.service /usr/lib/systemd/system/g
 # 3. Copiar plantillas quirúrgicas de juegos (UE5, RE Engine, TLOU, Horizon)
 COPY game-optimizations/ /usr/share/game-optimizations/
 
-# 4. Copiar scripts de integración (Antigravity AI, Huella, iPhone Tunnel, JDownloader 2)
+# 4. Copiar scripts de integración (Antigravity AI, Huella, iPhone Tunnel, JDownloader 2, Discos Mac APFS)
 COPY scripts/install-antigravity.sh /tmp/install-antigravity.sh
 COPY scripts/setup-fingerprint.sh /tmp/setup-fingerprint.sh
 COPY scripts/setup-iphone-tunnel.sh /tmp/setup-iphone-tunnel.sh
 COPY scripts/setup-jdownloader.sh /tmp/setup-jdownloader.sh
+COPY scripts/setup-mac-disks.sh /tmp/setup-mac-disks.sh
 
-# 5. Instalación de paquetes de hardware, Java y pre-empaquetado offline de herramientas
+# 5. Instalación de paquetes de hardware, Java, drivers de sistemas de archivos y herramientas
 RUN rpm-ostree install --apply-live=no \
         fprintd \
         fprintd-pam \
@@ -53,6 +55,11 @@ RUN rpm-ostree install --apply-live=no \
         libva-utils \
         intel-media-driver \
         java-21-openjdk \
+        apfs-fuse \
+        fuse3 \
+        ntfs-3g \
+        exfatprogs \
+        hfsprogs \
         jq \
         unzip \
         rsync && \
@@ -61,7 +68,8 @@ RUN rpm-ostree install --apply-live=no \
              /tmp/install-antigravity.sh \
              /tmp/setup-fingerprint.sh \
              /tmp/setup-iphone-tunnel.sh \
-             /tmp/setup-jdownloader.sh && \
+             /tmp/setup-jdownloader.sh \
+             /tmp/setup-mac-disks.sh && \
     # Pre-integrar binario nativo de tun2socks x86_64 para funcionamiento 100% offline
     curl -fsSL https://github.com/xjasonlyu/tun2socks/releases/latest/download/tun2socks-linux-amd64.zip -o /tmp/tun2socks.zip && \
     unzip -q /tmp/tun2socks.zip -d /tmp/tun2socks_extracted && \
@@ -73,7 +81,8 @@ RUN rpm-ostree install --apply-live=no \
     /tmp/setup-fingerprint.sh && \
     /tmp/setup-iphone-tunnel.sh && \
     /tmp/setup-jdownloader.sh && \
-    rm -f /tmp/install-antigravity.sh /tmp/setup-fingerprint.sh /tmp/setup-iphone-tunnel.sh /tmp/setup-jdownloader.sh && \
+    /tmp/setup-mac-disks.sh && \
+    rm -f /tmp/install-antigravity.sh /tmp/setup-fingerprint.sh /tmp/setup-iphone-tunnel.sh /tmp/setup-jdownloader.sh /tmp/setup-mac-disks.sh && \
     # Habilitar servicios systemd esenciales
     systemctl enable galaxybook-power-optimizer.service && \
     systemctl enable galaxybook-game-injector.service && \

@@ -38,7 +38,11 @@ Repositorio de construcción de imagen inmutable OCI / ISO basada en **`ghcr.io/
 7. **JDownloader 2 Preinstalado de Fábrica:**
    * Empaquetado de forma nativa con runtime OpenJDK 21.
    * Lanzador global en `/usr/bin/jdownloader` y acceso directo en el menú de aplicaciones de escritorio y Steam.
-8. **Antigravity AI Preinstalado:**
+8. **Soporte Nativo para Discos Externos de Mac (APFS / HFS+) y Windows (NTFS / exFAT):**
+   * Incluye el driver `apfs-fuse` para leer discos duros formateados en macOS (como tu disco externo de 1 TB `MessiEnto`).
+   * Herramienta y acceso directo de 1 clic: `Abrir Disco Externo Mac (APFS)` (`mount-mac-disk`).
+   * Soporte completo para `ntfs-3g`, `exfatprogs` y `hfsprogs`.
+9. **Antigravity AI Preinstalado:**
    * Entorno y lanzador de Antigravity (`/usr/bin/antigravity`) listo para usar en Modo Escritorio o desde la terminal.
 
 ---
