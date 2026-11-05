@@ -1,0 +1,12 @@
+[Unit]
+Description=Galaxy Book Internal Speakers and Smart Amp Fix
+After=sound.target pipewire.service alsa-state.service
+Wants=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/galaxybook-audio-fix.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

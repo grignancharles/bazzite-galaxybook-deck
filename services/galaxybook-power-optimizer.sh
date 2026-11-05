@@ -35,6 +35,15 @@ apply_rapl_limits() {
         echo "performance" > /sys/firmware/acpi/platform_profile 2>/dev/null || true
         log "ACPI platform_profile establecido en 'performance'"
     fi
+
+    # Soporte para Umbral de Carga Samsung (Protección de batería al 85%)
+    for bat_thresh in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
+        if [ -w "$bat_thresh" ]; then
+            echo 85 > "$bat_thresh" 2>/dev/null || true
+            log "Límite de protección de batería Samsung fijado al 85%"
+            break
+        fi
+    done
 }
 
 # 2. Configuración de GPU Iris Xe (Forzar rango 1100 - 1300 MHz en gaming)
