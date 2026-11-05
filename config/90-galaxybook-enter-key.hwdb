@@ -1,0 +1,11 @@
+# Remap physical Backslash key (\ / | directly above Enter) to ENTER
+# for Samsung Galaxy Book Flex2 Alpha
+evdev:atkbd:dmi:*
+ KEYBOARD_KEY_2b=enter
+
+# Also catch USB/HID/I2C keyboards
+evdev:input:b0003v*p*
+ KEYBOARD_KEY_70031=enter
+
+evdev:input:b0018v*p*
+ KEYBOARD_KEY_2b=enter

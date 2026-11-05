@@ -21,6 +21,7 @@ COPY config/intel-xe-gaming.sh /usr/etc/profile.d/intel-xe-gaming.sh
 COPY config/gamescope-custom-res.conf /usr/share/gamescope/galaxybook-resolutions.conf
 COPY config/vconsole.conf /usr/etc/vconsole.conf
 COPY config/30-touchpad.conf /usr/share/X11/xorg.conf.d/30-touchpad.conf
+COPY config/90-galaxybook-enter-key.hwdb /usr/lib/udev/hwdb.d/90-galaxybook-enter-key.hwdb
 
 # 2. Configurar perfil de usuario con Touchpad idéntico a MacBook y Teclado US
 RUN mkdir -p /usr/etc/skel/.config
