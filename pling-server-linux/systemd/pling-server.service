@@ -1,0 +1,14 @@
+[Unit]
+Description=Pling Server Linux - Meta Quest 2D Ultra-Low Latency Streaming
+After=graphical-session.target pipewire.service
+Wants=pipewire.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/pling-server serve
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

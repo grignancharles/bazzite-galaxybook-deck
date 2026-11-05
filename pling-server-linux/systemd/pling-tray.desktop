@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Pling Quest Streamer
+GenericName=VR Desktop Streamer
+Comment=Ultra-low latency 2D desktop streamer for Meta Quest (Intel Iris Xe VA-API)
+Exec=/usr/bin/pling-tray
+Icon=pling-icon-active
+Terminal=false
+Type=Application
+Categories=AudioVideo;Network;Utility;HardwareSettings;
+Keywords=VR;Quest;Streaming;Desktop;Pling;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Headset strap -->
+  <path d="M 6 32 C 6 18 58 18 58 32" fill="none" stroke="#6C757D" stroke-width="4" stroke-linecap="round" opacity="0.4"/>
+  <!-- Headset visor body -->
+  <rect x="10" y="24" width="44" height="24" rx="10" fill="#212529" stroke="#6C757D" stroke-width="2.5" />
+  <!-- Visor glass reflection -->
+  <path d="M 14 30 C 18 27 46 27 50 30 C 50 38 14 38 14 30 Z" fill="#495057" opacity="0.6"/>
+  <!-- Center status dot -->
+  <circle cx="32" cy="34" r="2.5" fill="#ADB5BD" />
+</svg>

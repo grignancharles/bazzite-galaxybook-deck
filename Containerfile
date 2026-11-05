@@ -48,6 +48,8 @@ COPY scripts/setup-iphone-tunnel.sh /tmp/setup-iphone-tunnel.sh
 COPY scripts/setup-jdownloader.sh /tmp/setup-jdownloader.sh
 COPY scripts/setup-mac-disks.sh /tmp/setup-mac-disks.sh
 COPY scripts/setup-kdeconnect.sh /tmp/setup-kdeconnect.sh
+COPY scripts/setup-pling-server.sh /tmp/setup-pling-server.sh
+COPY pling-server-linux/ /tmp/pling-server-linux/
 
 # 6. Instalación de paquetes usando dnf nativo con --skip-unavailable
 RUN dnf install -y --skip-unavailable --setopt=install_weak_deps=False \
@@ -59,6 +61,7 @@ RUN dnf install -y --skip-unavailable --setopt=install_weak_deps=False \
         msr-tools \
         python3-pip \
         python3-gobject \
+        python3-pyqt6 \
         ffmpeg && \
     dnf clean all && \
     chmod +x /usr/libexec/galaxybook-*.sh \
@@ -68,7 +71,8 @@ RUN dnf install -y --skip-unavailable --setopt=install_weak_deps=False \
              /tmp/setup-iphone-tunnel.sh \
              /tmp/setup-jdownloader.sh \
              /tmp/setup-mac-disks.sh \
-             /tmp/setup-kdeconnect.sh && \
+             /tmp/setup-kdeconnect.sh \
+             /tmp/setup-pling-server.sh && \
     # Pre-integrar binario nativo de tun2socks x86_64 para funcionamiento 100% offline
     curl -fsSL https://github.com/xjasonlyu/tun2socks/releases/latest/download/tun2socks-linux-amd64.zip -o /tmp/tun2socks.zip && \
     unzip -q /tmp/tun2socks.zip -d /tmp/tun2socks_extracted && \
@@ -82,7 +86,8 @@ RUN dnf install -y --skip-unavailable --setopt=install_weak_deps=False \
     /tmp/setup-jdownloader.sh && \
     /tmp/setup-mac-disks.sh && \
     /tmp/setup-kdeconnect.sh && \
-    rm -f /tmp/install-antigravity.sh /tmp/setup-fingerprint.sh /tmp/setup-iphone-tunnel.sh /tmp/setup-jdownloader.sh /tmp/setup-mac-disks.sh /tmp/setup-kdeconnect.sh && \
+    /tmp/setup-pling-server.sh && \
+    rm -rf /tmp/install-antigravity.sh /tmp/setup-* /tmp/pling-server-linux && \
     # Habilitar servicios inmutables en systemd mediante enlaces simbólicos limpios
     mkdir -p /usr/lib/systemd/system/multi-user.target.wants && \
     ln -sf /usr/lib/systemd/system/galaxybook-power-optimizer.service /usr/lib/systemd/system/multi-user.target.wants/ && \

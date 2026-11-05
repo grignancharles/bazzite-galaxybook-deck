@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="waitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD166" />
+      <stop offset="100%" stop-color="#F77F00" />
+    </linearGradient>
+  </defs>
+  <!-- Headset strap -->
+  <path d="M 6 32 C 6 18 58 18 58 32" fill="none" stroke="#F77F00" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <!-- Headset visor body -->
+  <rect x="10" y="24" width="44" height="24" rx="10" fill="#1C1A17" stroke="url(#waitGrad)" stroke-width="2.5" />
+  <!-- Visor glass reflection -->
+  <path d="M 14 30 C 18 27 46 27 50 30 C 50 38 14 38 14 30 Z" fill="url(#waitGrad)" opacity="0.7"/>
+  <!-- Center status dot (blinking indicator) -->
+  <circle cx="32" cy="34" r="3" fill="#FFFFFF" />
+</svg>

@@ -45,7 +45,11 @@ Repositorio de construcción de imagen inmutable OCI / ISO basada en **`ghcr.io/
    * Incluye el driver `apfs-fuse` para leer discos duros formateados en macOS (como tu disco externo de 1 TB `MessiEnto`).
    * Herramienta y acceso directo de 1 clic: `Abrir Disco Externo Mac (APFS)` (`mount-mac-disk`).
    * Soporte completo para `ntfs-3g`, `exfatprogs` y `hfsprogs`.
-11. **Antigravity AI Preinstalado:**
+11. **Pling Server 2D Nativo para Meta Quest (VA-API HEVC) con Widget en la Barra de Menú:**
+    * Transmisión de pantalla en 2D puro a Meta Quest (`PlingQuestAndroid`) por Wi-Fi o USB Tethering con latencia ultra-baja (~3-5 ms de codificación por hardware en la Iris Xe).
+    * Control total desde la barra de menú / System Tray (`pling-tray`) junto al brillo y volumen: botón de encender/apagar, selector de bitrate (15-70 Mbps) y audio de escritorio.
+    * Soporte bidireccional completo: inyección de ratón, scroll, drag y teclado virtual desde el casco vía `/dev/uinput`.
+12. **Antigravity AI Preinstalado:**
    * Entorno y lanzador de Antigravity (`/usr/bin/antigravity`) listo para usar en Modo Escritorio o desde la terminal.
 
 ---

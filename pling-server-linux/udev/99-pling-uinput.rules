@@ -1,0 +1,2 @@
+# Grant local logged-in users permission to inject input via /dev/uinput
+KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", TAG+="uaccess"
