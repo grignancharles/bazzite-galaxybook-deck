@@ -96,4 +96,4 @@ RUN dnf install -y --skip-unavailable --setopt=install_weak_deps=False \
     ln -sf /usr/lib/systemd/system/galaxybook-audio-fix.service /usr/lib/systemd/system/multi-user.target.wants/ && \
     ln -sf /usr/lib/systemd/system/galaxybook-iphone-tunnel.service /usr/lib/systemd/system/multi-user.target.wants/ && \
     ln -sf /usr/lib/systemd/system/iio-sensor-proxy.service /usr/lib/systemd/system/multi-user.target.wants/ && \
-    ostree container commit
+    bootc container lint

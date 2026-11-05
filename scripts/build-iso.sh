@@ -29,8 +29,8 @@ zerombr
 clearpart --all --initlabel --drives=nvme0n1
 autopart --type=btrfs
 
-# Instalacion 100% OFFLINE desde directorio OCI sin comprimir (Sin tar.gz que sature RAM)
-ostreecontainer --transport oci --url /run/install/repo/bazzite-galaxybook-deck --no-signature-verification
+# Instalacion 100% OFFLINE desde directorio OCI nativo con bootc
+bootc --source-imgref=oci:/run/install/repo/bazzite-galaxybook-deck --target-imgref=ghcr.io/grignancharles/bazzite-galaxybook-deck:latest
 
 reboot
 
