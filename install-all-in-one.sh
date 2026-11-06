@@ -528,13 +528,86 @@ udevadm trigger || true
 # ------------------------------------------------------------------------------
 # 14. ECOSISTEMA APPLE: KDE CONNECT (PORTAPAPELES UNIVERSAL CON MAC/IPHONE)
 # ------------------------------------------------------------------------------
-echo "→ 14/14 Configurando KDE Connect y Portapapeles Universal con Mac e iPhone..."
+echo "→ 14/16 Configurando KDE Connect y Portapapeles Universal con Mac e iPhone..."
 if command -v firewall-cmd >/dev/null 2>&1; then
     firewall-cmd --permanent --zone=trusted --add-service=kdeconnect 2>/dev/null || true
     firewall-cmd --reload 2>/dev/null || true
 fi
 systemctl --global enable kdeconnectd.service 2>/dev/null || true
 flatpak install -y --noninteractive flathub org.localsend.localsend_app 2>/dev/null || true
+
+# ------------------------------------------------------------------------------
+# 15. COMPORTAMIENTO MACBOOK AL CERRAR LA TAPA (INSTANT SLEEP / INSTANT WAKE)
+# ------------------------------------------------------------------------------
+echo "→ 15/16 Configurando suspensión y despertar instantáneo estilo MacBook..."
+mkdir -p /etc/systemd/logind.conf.d /etc/systemd/sleep.conf.d /usr/lib/systemd/system-sleep
+cat << 'EOF' > /etc/systemd/logind.conf.d/99-macbook-lid.conf
+[Login]
+HandleLidSwitch=suspend
+HandleLidSwitchExternalPower=suspend
+HandleLidSwitchDocked=ignore
+LidSwitchIgnoreInhibited=no
+EOF
+
+cat << 'EOF' > /etc/systemd/sleep.conf.d/99-macbook-sleep.conf
+[Sleep]
+AllowSuspend=yes
+AllowHibernation=no
+AllowSuspendThenHibernate=no
+SuspendMode=
+SuspendState=mem standby freeze
+EOF
+
+cat << 'EOF' > /usr/lib/systemd/system-sleep/galaxybook-wake-fix.sh
+#!/bin/bash
+case "$1/$2" in
+    pre/*)
+        sync
+        ;;
+    post/*)
+        for c in /sys/class/drm/card[0-9]*; do
+            [ -w "$c/gt_max_freq_mhz" ] && echo 1300 > "$c/gt_max_freq_mhz" 2>/dev/null || true
+        done
+        ;;
+esac
+EOF
+chmod +x /usr/lib/systemd/system-sleep/galaxybook-wake-fix.sh
+
+# ------------------------------------------------------------------------------
+# 16. LECTOR DE HUELLAS DACTILARES (TOUCH ID PARA LOGIN Y SUDO)
+# ------------------------------------------------------------------------------
+echo "→ 16/16 Configurando lector biométrico Touch ID con PAM..."
+if command -v authselect >/dev/null 2>&1; then
+    authselect enable-feature with-fingerprint 2>/dev/null || true
+fi
+systemctl enable --now fprintd.service 2>/dev/null || true
+
+cat << 'EOF' > /usr/local/bin/galaxybook-enroll-fingerprint
+#!/bin/bash
+echo "=========================================================="
+echo "    CONFIGURACIÓN DE TOUCH ID - SAMSUNG GALAXY BOOK      "
+echo "=========================================================="
+echo ""
+echo "Coloca y levanta tu dedo varias veces sobre el sensor de huellas:"
+echo ""
+fprintd-enroll "$USER"
+echo ""
+echo "✅ ¡Huella registrada! Ahora puedes desbloquear y usar sudo con tu huella."
+EOF
+chmod +x /usr/local/bin/galaxybook-enroll-fingerprint
+
+mkdir -p /usr/share/applications
+cat << 'EOF' > /usr/share/applications/galaxybook-enroll-fingerprint.desktop
+[Desktop Entry]
+Name=Registrar Huella (Touch ID)
+Comment=Configura el sensor de huella de tu Galaxy Book
+Exec=/usr/local/bin/galaxybook-enroll-fingerprint
+Icon=dialog-password
+Terminal=true
+Type=Application
+Categories=Settings;System;
+EOF
+chmod +x /usr/share/applications/galaxybook-enroll-fingerprint.desktop
 
 # ACTIVACIÓN INMEDIATA DE SERVICIOS
 systemctl daemon-reload
