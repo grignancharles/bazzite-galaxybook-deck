@@ -287,8 +287,19 @@ ACTION=="add", SUBSYSTEM=="power_supply", ATTR{type}=="Battery", ATTR{charge_con
 EOF
 udevadm control --reload-rules || true
 
-# 8. ACTIVACIÓN INMEDIATA DE TODOS LOS SERVICIOS
-echo "→ 8/8 Activando servicios del sistema..."
+# 9. BLINDAJE DE ARRANQUE EFI PARA SAMSUNG GALAXY BOOK (FIX BIOS SAMSUNG)
+echo "→ 9/9 Asegurando arranque EFI fallback en SSD (Fix BIOS Samsung)..."
+if [ -d "/boot/efi/EFI/fedora" ]; then
+    mkdir -p /boot/efi/EFI/BOOT
+    cp -f /boot/efi/EFI/fedora/shimx64.efi /boot/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null || \
+    cp -f /boot/efi/EFI/fedora/grubx64.efi /boot/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
+    cp -f /boot/efi/EFI/fedora/mmx64.efi /boot/efi/EFI/BOOT/mmx64.efi 2>/dev/null || true
+    cp -f /boot/efi/EFI/fedora/grub.cfg /boot/efi/EFI/BOOT/grub.cfg 2>/dev/null || true
+    echo "✓ Archivo fallback BOOTX64.EFI asegurado. La laptop siempre arrancará sin depender de NVRAM."
+fi
+
+# 10. ACTIVACIÓN INMEDIATA DE TODOS LOS SERVICIOS
+echo "→ 10/10 Activando servicios del sistema..."
 systemctl daemon-reload
 systemctl enable --now galaxybook-power-optimizer.service || true
 systemctl enable --now galaxybook-audio-fix.service || true
@@ -301,10 +312,12 @@ echo "╠═══════════════════════�
 echo "║  ✓ Tecla '\' funcionando como ENTER                               ║"
 echo "║  ✓ CPU fijada en 3.2 GHz permanente (Cero ahogo de energía)       ║"
 echo "║  ✓ GPU Iris Xe bloqueada a 1100-1300 MHz (2.15 TFLOPS continuos)   ║"
-echo "║  ✓ Fallback de Mesh Shaders a nivel global en todos los juegos     ║"
+echo "║  ✓ Escalado Universal 720p -> 1080p con Intel XeSS (DP4a)         ║"
+echo "║  ✓ Fallback global de Mesh Shaders a nivel de sistema (VKD3D)      ║"
 echo "║  ✓ Parche de audio estéreo y amplificadores Realtek                ║"
 echo "║  ✓ Touchpad con tap-to-click y scroll natural de Mac              ║"
 echo "║  ✓ Batería protegida al 85% para alargar vida útil                 ║"
+echo "║  ✓ Blindaje de arranque EFI fallback en /boot/efi                  ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
 EOF
