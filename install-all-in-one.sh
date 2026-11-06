@@ -514,7 +514,7 @@ fi
 # ------------------------------------------------------------------------------
 # 13. OCULTAR PARTICIONES DE WINDOWS Y EFI DE "FILES" (NAUTILUS)
 # ------------------------------------------------------------------------------
-echo "→ 13/13 Ocultando partición de Windows y EFI del explorador de archivos..."
+echo "→ 13/14 Ocultando partición de Windows y EFI del explorador de archivos..."
 cat << 'EOF' > /etc/udev/rules.d/99-hide-windows-partitions.rules
 # Ocultar partición EFI y partición de Windows (NTFS) de la barra lateral de Files/Nautilus
 KERNEL=="nvme*p1", ENV{UDISKS_IGNORE}="1"
@@ -524,6 +524,17 @@ SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="vfat", ENV{ID_FS_LABEL}=="*EFI*", ENV{UDIS
 EOF
 udevadm control --reload-rules || true
 udevadm trigger || true
+
+# ------------------------------------------------------------------------------
+# 14. ECOSISTEMA APPLE: KDE CONNECT (PORTAPAPELES UNIVERSAL CON MAC/IPHONE)
+# ------------------------------------------------------------------------------
+echo "→ 14/14 Configurando KDE Connect y Portapapeles Universal con Mac e iPhone..."
+if command -v firewall-cmd >/dev/null 2>&1; then
+    firewall-cmd --permanent --zone=trusted --add-service=kdeconnect 2>/dev/null || true
+    firewall-cmd --reload 2>/dev/null || true
+fi
+systemctl --global enable kdeconnectd.service 2>/dev/null || true
+flatpak install -y --noninteractive flathub org.localsend.localsend_app 2>/dev/null || true
 
 # ACTIVACIÓN INMEDIATA DE SERVICIOS
 systemctl daemon-reload
