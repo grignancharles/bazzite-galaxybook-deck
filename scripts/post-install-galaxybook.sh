@@ -145,11 +145,13 @@ systemctl enable --now galaxybook-game-injector.service
 log "4 servicios systemd instalados y activos"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. VARIABLES DE ENTORNO GLOBALES — Intel Iris Xe, DXVK, VKD3D, Mesa
+# 7. VARIABLES DE ENTORNO Y CONFIGURACIONES GLOBALES DXVK / VKD3D (MESH SHADERS)
 # ─────────────────────────────────────────────────────────────────────────────
-info "Configurando variables de entorno Intel Xe para gaming..."
+info "Configurando variables de entorno Intel Xe y fallback global de Mesh Shaders..."
 install -Dm644 "$REPO_ROOT/config/intel-xe-gaming.sh" /etc/profile.d/intel-xe-gaming.sh
-log "Variables Intel Xe activas (DXVK_ASYNC, VKD3D, ANV_GPL, MESA_SHADER_CACHE)"
+install -Dm644 "$REPO_ROOT/config/dxvk.conf" /etc/dxvk.conf
+install -Dm644 "$REPO_ROOT/config/vkd3d.conf" /etc/vkd3d.conf
+log "Fallback global de Mesh Shaders y DXVK/VKD3D configurados para TODOS los juegos"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 8. TECLADO — Consola virtual en US (sin acento muerto)

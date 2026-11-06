@@ -1,7 +1,13 @@
 #!/bin/bash
 # ==============================================================================
-# Daemon de Optimización Térmica y Eléctrica (RAPL / CPU Capping / GPU Boost)
-# Específico para Intel Core i7-1165G7 + Iris Xe G7 (Samsung Galaxy Book Flex2 Alpha)
+# Daemon de Optimización Térmica y Eléctrica PERMANENTE 24/7
+# Específico para Intel Core i7-1165G7 + Iris Xe G7 96EUs (Samsung Galaxy Book Flex2 Alpha)
+# ==============================================================================
+# PERFIL FIJO PERMANENTE:
+# 1. CPU capada SIEMPRE a 3.2 GHz (10W máx) -> CERO canibalismo eléctrico a la GPU
+# 2. GPU Iris Xe fijada SIEMPRE a 1100 - 1300 MHz continuos (18W limpios)
+# 3. RAPL PL1 = 28W continuo / PL2 = 35W pico
+# 4. Protección de batería Samsung limitada al 85%
 # ==============================================================================
 
 set -u
@@ -12,118 +18,71 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [${LOG_TAG}] $1"
 }
 
-log "Iniciando servicio de optimización de energía para Tiger Lake..."
+log "Aplicando Perfil Fijo Definitivo 24/7 (28W sostenido, CPU 3.2GHz, GPU 1300MHz)..."
 
-# 1. Configuración de límites RAPL (Running Average Power Limit)
-# PL1 (Sostenido) = 28W (28,000,000 microvatios)
-# PL2 (Pico) = 35W (35,000,000 microvatios)
+# 1. Límites Eléctricos RAPL (28W sostenido, 35W pico)
 apply_rapl_limits() {
     local rapl_base="/sys/class/powercap/intel-rapl:0"
     if [ -d "$rapl_base" ]; then
         if [ -w "$rapl_base/constraint_0_power_limit_uw" ]; then
             echo 28000000 > "$rapl_base/constraint_0_power_limit_uw" 2>/dev/null || true
-            log "RAPL PL1 fijado en 28W (28000000 uW)"
         fi
         if [ -w "$rapl_base/constraint_1_power_limit_uw" ]; then
             echo 35000000 > "$rapl_base/constraint_1_power_limit_uw" 2>/dev/null || true
-            log "RAPL PL2 fijado en 35W (35000000 uW)"
         fi
     fi
 
-    # Activar perfil de rendimiento en ACPI si está disponible (samsung-galaxybook / platform_profile)
+    # ACPI performance profile
     if [ -w "/sys/firmware/acpi/platform_profile" ]; then
         echo "performance" > /sys/firmware/acpi/platform_profile 2>/dev/null || true
-        log "ACPI platform_profile establecido en 'performance'"
     fi
 
-    # Soporte para Umbral de Carga Samsung (Protección de batería al 85%)
+    # Protección de batería al 85%
     for bat_thresh in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
         if [ -w "$bat_thresh" ]; then
             echo 85 > "$bat_thresh" 2>/dev/null || true
-            log "Límite de protección de batería Samsung fijado al 85%"
             break
         fi
     done
 }
 
-# 2. Configuración de GPU Iris Xe (Forzar rango 1100 - 1300 MHz en gaming)
-apply_gpu_gaming_profile() {
+# 2. Bloqueo Permanente de GPU Iris Xe a 1100 - 1300 MHz
+apply_gpu_profile() {
     for card_dir in /sys/class/drm/card[0-9]*; do
         if [ -f "$card_dir/gt_max_freq_mhz" ] && [ -w "$card_dir/gt_max_freq_mhz" ]; then
             echo 1300 > "$card_dir/gt_max_freq_mhz" 2>/dev/null || true
             echo 1100 > "$card_dir/gt_min_freq_mhz" 2>/dev/null || true
             echo 1300 > "$card_dir/gt_boost_freq_mhz" 2>/dev/null || true
-            log "GPU Iris Xe bloqueada a frecuencia de alto rendimiento (1100 - 1300 MHz)"
             break
         fi
     done
 }
 
-restore_gpu_idle_profile() {
-    for card_dir in /sys/class/drm/card[0-9]*; do
-        if [ -f "$card_dir/gt_min_freq_mhz" ] && [ -w "$card_dir/gt_min_freq_mhz" ]; then
-            echo 400 > "$card_dir/gt_min_freq_mhz" 2>/dev/null || true
-            echo 1300 > "$card_dir/gt_max_freq_mhz" 2>/dev/null || true
-            break
-        fi
-    done
-}
-
-# 3. Limitar CPU a 3.2 GHz en gaming para no canibalizar los vatios de la GPU
-apply_cpu_gaming_profile() {
+# 3. Bloqueo Permanente de CPU a 3.2 GHz (Willow Cove IPC alto con bajo consumo)
+apply_cpu_profile() {
     for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
         if [ -w "$cpu/cpufreq/scaling_max_freq" ]; then
             echo 3200000 > "$cpu/cpufreq/scaling_max_freq" 2>/dev/null || true
+        fi
+        if [ -w "$cpu/cpufreq/scaling_min_freq" ]; then
+            echo 1200000 > "$cpu/cpufreq/scaling_min_freq" 2>/dev/null || true
         fi
         if [ -w "$cpu/cpufreq/energy_performance_preference" ]; then
             echo "balance_performance" > "$cpu/cpufreq/energy_performance_preference" 2>/dev/null || true
         fi
     done
-    log "CPU i7-1165G7 capada a 3.2 GHz para garantizar los 1300 MHz continuos de la Iris Xe"
 }
 
-restore_cpu_desktop_profile() {
-    for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
-        if [ -f "$cpu/cpufreq/cpuinfo_max_freq" ] && [ -w "$cpu/cpufreq/scaling_max_freq" ]; then
-            max_khz=$(cat "$cpu/cpufreq/cpuinfo_max_freq" 2>/dev/null || echo 4700000)
-            echo "$max_khz" > "$cpu/cpufreq/scaling_max_freq" 2>/dev/null || true
-        fi
-        if [ -w "$cpu/cpufreq/energy_performance_preference" ]; then
-            echo "balance_power" > "$cpu/cpufreq/energy_performance_preference" 2>/dev/null || true
-        fi
-    done
-    log "CPU i7-1165G7 restaurada al límite natural (hasta 4.7 GHz) para Modo Escritorio"
-}
-
-# Aplicar límites RAPL iniciales
+# Aplicar de inmediato
 apply_rapl_limits
+apply_gpu_profile
+apply_cpu_profile
+log "Perfil de potencia permanente activo. Frecuencias y voltajes bloqueados."
 
-LAST_STATE="unknown"
-
-# Bucle de supervisión continua: detecta si la sesión Gamescope está activa
+# Re-aplicar en bucle cada 15s por si el firmware de la BIOS intenta resetear los límites
 while true; do
-    # Re-aplicar RAPL por si la BIOS o el firmware ACPI intenta resetearlo
     apply_rapl_limits
-
-    # Comprobar si Gamescope o algún proceso de juego Proton está activo
-    if pgrep -x "gamescope" > /dev/null || pgrep -x "gamescope-wl" > /dev/null; then
-        CURRENT_STATE="gaming"
-    else
-        CURRENT_STATE="desktop"
-    fi
-
-    if [ "$CURRENT_STATE" != "$LAST_STATE" ]; then
-        if [ "$CURRENT_STATE" = "gaming" ]; then
-            log "SESIÓN GAMESCOPE DETECTADA -> Aplicando perfil de Gaming (CPU @ 3.2 GHz, GPU @ 1300 MHz)"
-            apply_cpu_gaming_profile
-            apply_gpu_gaming_profile
-        else
-            log "MODO ESCRITORIO DETECTADO -> Restaurando perfiles de bajo consumo y frecuencias dinámicas"
-            restore_cpu_desktop_profile
-            restore_gpu_idle_profile
-        fi
-        LAST_STATE="$CURRENT_STATE"
-    fi
-
-    sleep 5
+    apply_gpu_profile
+    apply_cpu_profile
+    sleep 15
 done
