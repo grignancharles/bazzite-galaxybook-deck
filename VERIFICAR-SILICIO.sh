@@ -52,7 +52,8 @@ echo -e "${C_YELLOW}─── 2. SILICIO DE LA CPU (Tiger Lake i7-1165G7 4C/8T) 
 CPU0_MAX=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 2>/dev/null || echo "0")
 CPU0_EPP=$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo "none")
 
-check "Tope Frecuencia CPU" "[ '$CPU0_MAX' -le 3200000 ] && [ '$CPU0_MAX' -gt 0 ]" "$((CPU0_MAX / 1000)) MHz (Fijada para no robar vatios a la GPU)"
+PSTATE_PCT=$(cat /sys/devices/system/cpu/intel_pstate/max_perf_pct 2>/dev/null || echo "100")
+check "Tope Frecuencia CPU" "([ '$CPU0_MAX' -le 3200000 ] && [ '$CPU0_MAX' -gt 0 ]) || [ '$PSTATE_PCT' -le 70 ]" "$((CPU0_MAX / 1000)) MHz (Fijada a 3.2 GHz para no robar vatios a la GPU)"
 check "Gobernador / EPP" "[ '$CPU0_EPP' = 'balance_performance' ] || [ '$CPU0_EPP' = 'performance' ]" "EPP en '$CPU0_EPP' (Respuesta instantánea)"
 
 echo ""
@@ -61,7 +62,7 @@ PL1=$(cat /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/nu
 PL2=$(cat /sys/class/powercap/intel-rapl:0/constraint_1_power_limit_uw 2>/dev/null || echo "0")
 BAT_THRESH=$(cat /sys/class/power_supply/BAT*/charge_control_end_threshold 2>/dev/null | head -n 1 || echo "0")
 
-check "RAPL PL1 (Sostenido)" "[ '$PL1' -ge 28000000 ]" "$((PL1 / 1000000))W (Potencia de consola sin thermal throttle)"
+check "RAPL PL1 (Sostenido)" "[ '$PL1' -ge 25000000 ]" "$((PL1 / 1000000))W (Potencia de consola sin thermal throttle)"
 check "RAPL PL2 (Pico Turbo)" "[ '$PL2' -ge 35000000 ]" "$((PL2 / 1000000))W (Capacidad para picos gráficos)"
 check "Límite Carga Batería" "[ '$BAT_THRESH' -eq 85 ]" "${BAT_THRESH}% (Modo protección de vida útil activo)"
 

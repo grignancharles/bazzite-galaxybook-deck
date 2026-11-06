@@ -54,21 +54,21 @@ log() { logger -t "galaxybook-power" "$1"; echo "[$(date '+%H:%M:%S')] $1"; }
 
 apply_console_silicon_profile() {
     # 1. RAPL 28W sostenido / 35W pico (Cero estrangulamiento térmico)
-    local rapl="/sys/class/powercap/intel-rapl:0"
-    if [ -d "$rapl" ]; then
-        echo 28000000 > "$rapl/constraint_0_power_limit_uw" 2>/dev/null || true
-        echo 35000000 > "$rapl/constraint_1_power_limit_uw" 2>/dev/null || true
-    fi
+    for rapl in /sys/class/powercap/intel-rapl /sys/class/powercap/intel-rapl:0 /sys/class/powercap/intel-rapl:0:0; do
+        [ -w "$rapl/constraint_0_power_limit_uw" ] && echo 28000000 > "$rapl/constraint_0_power_limit_uw" 2>/dev/null || true
+        [ -w "$rapl/constraint_1_power_limit_uw" ] && echo 35000000 > "$rapl/constraint_1_power_limit_uw" 2>/dev/null || true
+    done
     [ -w "/sys/firmware/acpi/platform_profile" ] && echo "performance" > /sys/firmware/acpi/platform_profile 2>/dev/null || true
 
     # 2. Clavar GPU Iris Xe entre 1100 MHz y 1300 MHz (2.15 TFLOPS continuos)
-    for c in /sys/class/drm/card[0-9]*; do
-        if [ -w "$c/gt_max_freq_mhz" ]; then
-            echo 1300 > "$c/gt_max_freq_mhz" 2>/dev/null || true
-            echo 1100 > "$c/gt_min_freq_mhz" 2>/dev/null || true
-            echo 1300 > "$c/gt_boost_freq_mhz" 2>/dev/null || true
-            break
-        fi
+    for dev in /sys/class/drm/card[0-9]*/gt_min_freq_mhz /sys/class/drm/card[0-9]*/gt/gt0/min_freq_mhz; do
+        [ -w "$dev" ] && echo 1100 > "$dev" 2>/dev/null || true
+    done
+    for dev in /sys/class/drm/card[0-9]*/gt_max_freq_mhz /sys/class/drm/card[0-9]*/gt/gt0/max_freq_mhz; do
+        [ -w "$dev" ] && echo 1300 > "$dev" 2>/dev/null || true
+    done
+    for dev in /sys/class/drm/card[0-9]*/gt_boost_freq_mhz /sys/class/drm/card[0-9]*/gt/gt0/boost_freq_mhz; do
+        [ -w "$dev" ] && echo 1300 > "$dev" 2>/dev/null || true
     done
 
     # 3. Clavar CPU en 3.2 GHz (No le roba watts a la GPU y no genera calor residual)
@@ -76,6 +76,9 @@ apply_console_silicon_profile() {
         [ -w "$cpu/cpufreq/scaling_max_freq" ] && echo 3200000 > "$cpu/cpufreq/scaling_max_freq" 2>/dev/null || true
         [ -w "$cpu/cpufreq/energy_performance_preference" ] && echo "balance_performance" > "$cpu/cpufreq/energy_performance_preference" 2>/dev/null || true
     done
+    if [ -w "/sys/devices/system/cpu/intel_pstate/max_perf_pct" ]; then
+        echo 68 > /sys/devices/system/cpu/intel_pstate/max_perf_pct 2>/dev/null || true
+    fi
 
     # 4. Desbloquear Ring Bus / Uncore (Acelera tráfico Caché L3 <-> RAM LPDDR4x <-> GPU)
     for uncore in /sys/devices/system/cpu/intel_uncore_frequency/*; do
@@ -92,6 +95,11 @@ apply_console_silicon_profile() {
     done
 }
 
+if [ "${1:-}" = "--once" ]; then
+    apply_console_silicon_profile
+    exit 0
+fi
+
 apply_console_silicon_profile
 log "Perfil Consola de Silicio fijado: CPU 3.2GHz, GPU 1300MHz, Uncore MAX, RAPL 28W/35W."
 
@@ -101,6 +109,7 @@ while true; do
 done
 EOF
 chmod +x /usr/local/bin/galaxybook-power-optimizer.sh
+/usr/local/bin/galaxybook-power-optimizer.sh --once 2>/dev/null || true
 
 cat << 'EOF' > /etc/systemd/system/galaxybook-power-optimizer.service
 [Unit]
@@ -117,6 +126,8 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable --now galaxybook-power-optimizer.service 2>/dev/null || true
 
 # ------------------------------------------------------------------------------
 # 3. GAME BOOSTER: PRIORIDAD REAL-TIME, C-STATES CLAMP Y CONGELAMIENTO DE TAREAS
@@ -714,7 +725,7 @@ if command -v firewall-cmd >/dev/null 2>&1; then
     firewall-cmd --reload 2>/dev/null || true
 fi
 systemctl --global enable kdeconnectd.service 2>/dev/null || true
-flatpak install -y --noninteractive flathub org.localsend.localsend_app 2>/dev/null || true
+(flatpak install -y --noninteractive flathub org.localsend.localsend_app >/dev/null 2>&1 &) || true
 
 # ------------------------------------------------------------------------------
 # 15. COMPORTAMIENTO MACBOOK AL CERRAR LA TAPA (INSTANT SLEEP / INSTANT WAKE)
