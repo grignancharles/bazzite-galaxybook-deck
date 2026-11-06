@@ -1,10 +1,12 @@
 """
-Ultra-low latency audio streamer for Pling Quest client.
+Ultra-low latency desktop audio streamer for Meta Quest client.
 Captures system audio via PipeWire / PulseAudio as PCM Float32LE 48000Hz Stereo.
+Applies real-time volume boost gain matching Mac StreamEngine Audio pipeline.
 """
 
 import os
 import time
+import array
 import shutil
 import logging
 import subprocess
@@ -13,6 +15,13 @@ from typing import Callable, Optional
 from pling.config import PlingConfig
 
 logger = logging.getLogger("PlingAudio")
+
+# Try to import numpy for ultra-fast vectorised gain scaling, fallback to standard array
+try:
+    import numpy as np
+    HAVE_NUMPY = True
+except ImportError:
+    HAVE_NUMPY = False
 
 class AudioStreamer:
     """
@@ -26,16 +35,24 @@ class AudioStreamer:
         self._thread: Optional[threading.Thread] = None
         self._running = False
         self._lock = threading.Lock()
+        self._current_volume_boost: float = config.volume_boost
 
     @property
     def is_running(self) -> bool:
         return self._running and self._process is not None and self._process.poll() is None
 
+    def set_volume_boost(self, boost: float) -> None:
+        """
+        Dynamically adjusts volume boost multiplier (0.0 to 10.0x).
+        """
+        self._current_volume_boost = max(0.0, min(10.0, float(boost)))
+        self.config.volume_boost = self._current_volume_boost
+
     def _get_capture_command(self) -> list[str]:
         rate = self.config.audio_sample_rate
         channels = self.config.audio_channels
 
-        # 1. PipeWire pw-record (Standard on Bazzite / Fedora)
+        # 1. PipeWire pw-record (Standard on SteamOS / Bazzite / Fedora)
         if shutil.which("pw-record"):
             return [
                 "pw-record",
@@ -76,7 +93,7 @@ class AudioStreamer:
                 return False
 
             cmd = self._get_capture_command()
-            logger.info(f"Starting audio capture: {' '.join(cmd)}")
+            logger.info(f"Starting desktop audio capture: {' '.join(cmd)}")
 
             try:
                 self._process = subprocess.Popen(
@@ -111,12 +128,37 @@ class AudioStreamer:
                         pass
                 self._process = None
 
+    def _apply_gain(self, raw_bytes: bytes, gain: float) -> bytes:
+        """
+        Scales Float32 PCM samples by gain (0.15 * volume_boost).
+        Matching Mac ContentView: 'let gain: Float32 = 0.15 * self.volumeBoost'
+        """
+        if abs(gain - 1.0) < 0.005:
+            return raw_bytes
+
+        if HAVE_NUMPY:
+            arr = np.frombuffer(raw_bytes, dtype=np.float32)
+            scaled = np.clip(arr * gain, -1.0, 1.0)
+            return scaled.tobytes()
+
+        # Fallback using standard library array
+        arr = array.array('f')
+        arr.frombytes(raw_bytes)
+        for i in range(len(arr)):
+            v = arr[i] * gain
+            if v > 1.0:
+                v = 1.0
+            elif v < -1.0:
+                v = -1.0
+            arr[i] = v
+        return arr.tobytes()
+
     def _capture_loop(self) -> None:
         stdout = self._process.stdout if self._process else None
         if not stdout:
             return
 
-        # 960 samples per channel * 2 channels * 4 bytes/sample = 7680 bytes (20ms)
+        # 960 samples per channel * 2 channels * 4 bytes/sample = 7680 bytes (20ms buffer)
         chunk_size = self.config.audio_chunk_samples * self.config.audio_channels * 4
 
         while self._running:
@@ -124,13 +166,18 @@ class AudioStreamer:
                 data = stdout.read(chunk_size)
                 if not data:
                     if self._process and self._process.poll() is not None:
-                        logger.warning("Audio capture process ended.")
+                        logger.warning("Audio capture process ended unexpectedly.")
                         break
                     time.sleep(0.005)
                     continue
 
                 if len(data) > 0:
-                    self.on_audio_chunk(data)
+                    # Unity gain calculation matching Mac StreamEngine: 0.15 * volumeBoost
+                    # For Linux, 1.0 boost corresponds to normal output volume
+                    gain = float(self._current_volume_boost)
+                    processed = self._apply_gain(data, gain)
+                    self.on_audio_chunk(processed)
+
             except Exception as e:
                 logger.error(f"Error in audio capture loop: {e}")
                 break

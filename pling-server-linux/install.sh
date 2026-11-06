@@ -1,92 +1,131 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Installer for Pling Server Linux on Bazzite / Fedora / SteamOS
+# 100% Offline Installer for Pling Server Linux (Intel Tiger Lake Gen12)
+# Compatible with SteamOS, Bazzite, Fedora, Ubuntu, Arch Linux
 # ==============================================================================
 set -euo pipefail
 
-PREFIX="${PREFIX:-/usr}"
+PREFIX="${PREFIX:-/usr/local}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "=== Installing Pling Server Linux ==="
+echo "=== Installing Pling Server Linux (Meta Quest Streaming) ==="
 
-# 1. Install Python module to /usr/lib/pling or /usr/share/pling
-echo "[1/6] Installing Pling server modules to ${PREFIX}/share/pling..."
+# 1. Install Python module & assets to /usr/local/share/pling and /usr/share/pling
+echo "[1/6] Installing Pling core modules and assets..."
 mkdir -p "${PREFIX}/share/pling/pling"
 mkdir -p "${PREFIX}/share/pling/assets"
+mkdir -p "/usr/share/pling/pling" "/usr/share/pling/assets" 2>/dev/null || true
 
-cp -r "${SCRIPT_DIR}/pling/"* "${PREFIX}/share/pling/pling/"
-cp -r "${SCRIPT_DIR}/assets/"* "${PREFIX}/share/pling/assets/"
+cp -rf "${SCRIPT_DIR}/pling/"* "${PREFIX}/share/pling/pling/"
+cp -rf "${SCRIPT_DIR}/assets/"* "${PREFIX}/share/pling/assets/"
+cp -rf "${SCRIPT_DIR}/pling/"* "/usr/share/pling/pling/" 2>/dev/null || true
+cp -rf "${SCRIPT_DIR}/assets/"* "/usr/share/pling/assets/" 2>/dev/null || true
 
-# 2. Install executables to /usr/bin
+# 2. Install executables to /usr/local/bin and /usr/bin
 echo "[2/6] Installing binary wrappers in ${PREFIX}/bin..."
-mkdir -p "${PREFIX}/bin"
+mkdir -p "${PREFIX}/bin" "/usr/bin" 2>/dev/null || true
 
-cat << 'EOF' > "${PREFIX}/bin/pling-server"
-#!/usr/bin/env python3
-import sys
-sys.path.insert(0, "/usr/share/pling")
-from pling.cli import main
-if __name__ == "__main__":
-    main()
-EOF
+for BIN_NAME in pling-server pling-ctl pling-tray; do
+    cp -f "${SCRIPT_DIR}/${BIN_NAME}" "${PREFIX}/bin/${BIN_NAME}"
+    chmod +x "${PREFIX}/bin/${BIN_NAME}"
+    cp -f "${SCRIPT_DIR}/${BIN_NAME}" "/usr/bin/${BIN_NAME}" 2>/dev/null || true
+    chmod +x "/usr/bin/${BIN_NAME}" 2>/dev/null || true
+done
 
-cat << 'EOF' > "${PREFIX}/bin/pling-tray"
-#!/usr/bin/env python3
-import sys
-sys.path.insert(0, "/usr/share/pling")
-from pling.tray import main
-if __name__ == "__main__":
-    main()
-EOF
+# 3. Install udev rule for /dev/uinput and /dev/dri
+echo "[3/6] Installing udev rules for input injection & VA-API GPU access..."
+mkdir -p /etc/udev/rules.d /usr/lib/udev/rules.d 2>/dev/null || true
+if [ -f "${SCRIPT_DIR}/udev/99-pling-uinput.rules" ]; then
+    cp -f "${SCRIPT_DIR}/udev/99-pling-uinput.rules" /etc/udev/rules.d/99-pling-uinput.rules 2>/dev/null || true
+    cp -f "${SCRIPT_DIR}/udev/99-pling-uinput.rules" /usr/lib/udev/rules.d/99-pling-uinput.rules 2>/dev/null || true
+fi
 
-cat << 'EOF' > "${PREFIX}/bin/pling-ctl"
-#!/usr/bin/env python3
-import sys
-sys.path.insert(0, "/usr/share/pling")
-from pling.cli import main
-if __name__ == "__main__":
-    main()
-EOF
+# Ensure uinput kernel module is configured to load at boot
+mkdir -p /etc/modules-load.d /usr/lib/modules-load.d 2>/dev/null || true
+echo "uinput" > /etc/modules-load.d/pling-uinput.conf 2>/dev/null || true
+modprobe uinput 2>/dev/null || true
 
-chmod +x "${PREFIX}/bin/pling-server" "${PREFIX}/bin/pling-tray" "${PREFIX}/bin/pling-ctl"
-
-# 3. Install udev rule for /dev/uinput
-echo "[3/6] Installing udev rules..."
-mkdir -p /usr/lib/udev/rules.d
-cp "${SCRIPT_DIR}/udev/99-pling-uinput.rules" /usr/lib/udev/rules.d/99-pling-uinput.rules
 if command -v udevadm >/dev/null 2>&1; then
-    udevadm control --reload-rules || true
-    udevadm trigger --name-match=uinput || true
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger --name-match=uinput 2>/dev/null || true
 fi
 
-# 4. Install Desktop launchers and icons
+# 4. Install Desktop launchers and application icons
 echo "[4/6] Installing desktop launcher and icons..."
-mkdir -p "${PREFIX}/share/applications"
-mkdir -p "${PREFIX}/share/icons/hicolor/scalable/apps"
+mkdir -p "${PREFIX}/share/applications" "/usr/share/applications" 2>/dev/null || true
+mkdir -p "${PREFIX}/share/icons/hicolor/scalable/apps" "/usr/share/icons/hicolor/scalable/apps" 2>/dev/null || true
 
-cp "${SCRIPT_DIR}/systemd/pling-tray.desktop" "${PREFIX}/share/applications/pling-tray.desktop"
-cp "${SCRIPT_DIR}/assets/pling-icon-active.svg" "${PREFIX}/share/icons/hicolor/scalable/apps/pling-icon-active.svg"
-cp "${SCRIPT_DIR}/assets/pling-icon-idle.svg" "${PREFIX}/share/icons/hicolor/scalable/apps/pling-icon-idle.svg"
-cp "${SCRIPT_DIR}/assets/pling-icon-waiting.svg" "${PREFIX}/share/icons/hicolor/scalable/apps/pling-icon-waiting.svg"
-
-# Setup autostart in /etc/skel for new users and current user if possible
-mkdir -p "/usr/etc/skel/.config/autostart"
-cp "${SCRIPT_DIR}/systemd/pling-tray.desktop" "/usr/etc/skel/.config/autostart/pling-tray.desktop"
-
-if [ -n "${HOME:-}" ] && [ -d "${HOME}/.config" ]; then
-    mkdir -p "${HOME}/.config/autostart"
-    cp "${SCRIPT_DIR}/systemd/pling-tray.desktop" "${HOME}/.config/autostart/pling-tray.desktop"
+if [ -f "${SCRIPT_DIR}/systemd/pling-tray.desktop" ]; then
+    cp -f "${SCRIPT_DIR}/systemd/pling-tray.desktop" "${PREFIX}/share/applications/pling-tray.desktop" 2>/dev/null || true
+    cp -f "${SCRIPT_DIR}/systemd/pling-tray.desktop" "/usr/share/applications/pling-tray.desktop" 2>/dev/null || true
 fi
 
-# 5. Install systemd user service
-echo "[5/6] Installing systemd user service..."
-mkdir -p "${PREFIX}/lib/systemd/user"
-cp "${SCRIPT_DIR}/systemd/pling-server.service" "${PREFIX}/lib/systemd/user/pling-server.service"
+for ICON in pling-icon-active.svg pling-icon-idle.svg pling-icon-waiting.svg; do
+    if [ -f "${SCRIPT_DIR}/assets/${ICON}" ]; then
+        cp -f "${SCRIPT_DIR}/assets/${ICON}" "${PREFIX}/share/icons/hicolor/scalable/apps/${ICON}" 2>/dev/null || true
+        cp -f "${SCRIPT_DIR}/assets/${ICON}" "/usr/share/icons/hicolor/scalable/apps/${ICON}" 2>/dev/null || true
+    fi
+done
 
-# 6. Ensure uinput kernel module is loaded at boot
-echo "[6/6] Configuring uinput kernel module..."
-mkdir -p /usr/lib/modules-load.d
-echo "uinput" > /usr/lib/modules-load.d/pling-uinput.conf
+# Autostart configuration
+mkdir -p "/etc/xdg/autostart" "/etc/skel/.config/autostart" 2>/dev/null || true
+if [ -f "${SCRIPT_DIR}/systemd/pling-tray.desktop" ]; then
+    cp -f "${SCRIPT_DIR}/systemd/pling-tray.desktop" "/etc/xdg/autostart/pling-tray.desktop" 2>/dev/null || true
+    cp -f "${SCRIPT_DIR}/systemd/pling-tray.desktop" "/etc/skel/.config/autostart/pling-tray.desktop" 2>/dev/null || true
+fi
+
+# 5. Install systemd services (System daemon & User service)
+echo "[5/6] Installing systemd services..."
+mkdir -p /etc/systemd/system /usr/lib/systemd/user 2>/dev/null || true
+
+cat << 'EOF' > /etc/systemd/system/pling-server.service
+[Unit]
+Description=Pling Server Linux - Meta Quest 2D Ultra-Low Latency Streaming
+After=network.target sound.target pipewire.service
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/pling-server serve
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+LimitRTPRIO=99
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat << 'EOF' > /usr/lib/systemd/user/pling-server.service
+[Unit]
+Description=Pling Server Linux (User Session)
+After=graphical-session.target pipewire.service
+Wants=pipewire.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/pling-server serve
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
+EOF
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable pling-server.service 2>/dev/null || true
+fi
+
+# 6. Verification
+echo "[6/6] Verifying offline installation..."
+if [ -x "${PREFIX}/bin/pling-server" ] && [ -x "${PREFIX}/bin/pling-ctl" ]; then
+    echo "✓ Pling Server Linux installed successfully in ${PREFIX}/bin"
+    echo "✓ Service: pling-server.service (systemd)"
+    echo "✓ Tray Applet: pling-tray"
+    echo "✓ CLI Control: pling-ctl"
+fi
 
 echo "=== Pling Server installation complete! ==="
-echo "Run 'pling-tray' to launch the system tray icon, or 'pling-server serve' to start in background."

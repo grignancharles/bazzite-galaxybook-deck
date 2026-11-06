@@ -402,12 +402,13 @@ WantedBy=multi-user.target
 EOF
 
 # ------------------------------------------------------------------------------
-# 8. TÚNEL PERMANENTE DE IPHONE (MAGICPROXY & TUN2SOCKS)
+# 8. TÚNEL PERMANENTE DE IPHONE (MAGICPROXY & TUN2SOCKS - 1:1 PORT DE PAIRAPP)
 # ------------------------------------------------------------------------------
-echo "→ 8/16 Configurando MagicProxy y servicio automático de Hotspot de iPhone..."
+echo "→ 8/16 Configurando MagicProxy (Port 1:1 de PairApp macOS) y tun2socks..."
 
-# Instalar binario nativo tun2socks si viene en la carpeta del script
+# Instalar binario nativo tun2socks
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+mkdir -p /usr/local/bin /usr/local/share/magicproxy
 if [ -f "$SCRIPT_DIR/tun2socks" ]; then
     cp -f "$SCRIPT_DIR/tun2socks" /usr/local/bin/tun2socks
     chmod +x /usr/local/bin/tun2socks
@@ -416,89 +417,61 @@ elif [ -f "$SCRIPT_DIR/bin/tun2socks" ]; then
     chmod +x /usr/local/bin/tun2socks
 fi
 
-# Instalar helper de MagicProxy si viene en la carpeta
-if [ -f "$SCRIPT_DIR/magicproxy/bin/magicproxy-net" ]; then
-    cp -f "$SCRIPT_DIR/magicproxy/bin/magicproxy-net" /usr/local/bin/magicproxy-net
-    chmod +x /usr/local/bin/magicproxy-net
+# Copiar paquete completo magicproxy-linux
+if [ -d "$SCRIPT_DIR/magicproxy-linux" ]; then
+    cp -rf "$SCRIPT_DIR/magicproxy-linux/"* /usr/local/share/magicproxy/ 2>/dev/null || true
+    chmod +x /usr/local/share/magicproxy/*.py /usr/local/share/magicproxy/magicproxy-cli 2>/dev/null || true
 fi
+
+# CLI magicproxy
+cat << 'EOF' > /usr/local/bin/magicproxy
+#!/usr/bin/env python3
+import sys, os
+sys.path.insert(0, "/usr/local/share/magicproxy")
+from magicproxy_cli import main
+if __name__ == "__main__":
+    main()
+EOF
+chmod +x /usr/local/bin/magicproxy
+
+# Daemon ejecutable
+cat << 'EOF' > /usr/local/bin/magicproxy-daemon
+#!/usr/bin/env python3
+import sys, os
+sys.path.insert(0, "/usr/local/share/magicproxy")
+from daemon import MagicProxyDaemon
+if __name__ == "__main__":
+    d = MagicProxyDaemon()
+    d.start()
+EOF
+chmod +x /usr/local/bin/magicproxy-daemon
+
+# Enlace de compatibilidad
+ln -sf /usr/local/bin/magicproxy-daemon /usr/local/bin/galaxybook-iphone-tunnel.sh
 
 # Bypass TTL 65 inmediato y permanente en el kernel
 echo "net.ipv4.ip_default_ttl = 65" > /etc/sysctl.d/98-iphone-ttl-bypass.conf
 sysctl -w net.ipv4.ip_default_ttl=65 2>/dev/null || true
 
-cat << 'EOF' > /usr/local/bin/galaxybook-iphone-tunnel.sh
-#!/bin/bash
-set -u
-IPHONE_IP="172.20.10.1"
-IPHONE_PORT="10808"
-TUN_DEV="tun69"
-
-start_tunnel() {
-    if ip link show "$TUN_DEV" >/dev/null 2>&1 && pgrep -f "tun2socks.*$TUN_DEV" >/dev/null 2>&1; then
-        return 0
-    fi
-
-    TUN2SOCKS_BIN=""
-    if [ -x "/usr/local/bin/tun2socks" ]; then
-        TUN2SOCKS_BIN="/usr/local/bin/tun2socks"
-    elif [ -x "/usr/bin/tun2socks" ]; then
-        TUN2SOCKS_BIN="/usr/bin/tun2socks"
-    elif command -v tun2socks >/dev/null 2>&1; then
-        TUN2SOCKS_BIN=$(command -v tun2socks)
-    else
-        return 0
-    fi
-
-    # Si magicproxy-net está disponible, usar el motor completo
-    if [ -x "/usr/local/bin/magicproxy-net" ]; then
-        /usr/local/bin/magicproxy-net up "$IPHONE_IP" "$IPHONE_PORT"
-        sysctl -w net.ipv4.ip_default_ttl=65 2>/dev/null || true
-        return 0
-    fi
-
-    DEFAULT_GW=$(ip route show default 2>/dev/null | awk '{print $3}' | head -n 1)
-    [ -z "$DEFAULT_GW" ] && DEFAULT_GW="$IPHONE_IP"
-
-    ip tuntap add dev "$TUN_DEV" mode tun 2>/dev/null || true
-    ip addr replace 10.0.0.2/24 dev "$TUN_DEV" 2>/dev/null || ip addr add 10.0.0.2/24 dev "$TUN_DEV" 2>/dev/null || true
-    ip link set dev "$TUN_DEV" mtu 1400 up
-    pkill -f "tun2socks.*$TUN_DEV" 2>/dev/null || true
-    "$TUN2SOCKS_BIN" -device "$TUN_DEV" -proxy "socks5://${IPHONE_IP}:${IPHONE_PORT}" -loglevel error >/dev/null 2>&1 &
-    sleep 0.6
-    ip route replace "${IPHONE_IP}/32" via "$DEFAULT_GW" 2>/dev/null || ip route add "${IPHONE_IP}/32" via "$DEFAULT_GW" 2>/dev/null || true
-    ip route replace 0.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || ip route add 0.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || true
-    ip route replace 128.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || ip route add 128.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || true
-    sysctl -w net.ipv4.ip_default_ttl=65 2>/dev/null || true
-
-    if command -v resolvectl >/dev/null 2>&1; then
-        resolvectl dns "$TUN_DEV" 1.1.1.1 8.8.8.8 2>/dev/null || true
-        resolvectl domain "$TUN_DEV" '~.' 2>/dev/null || true
-        resolvectl default-route "$TUN_DEV" true 2>/dev/null || true
-    fi
-}
-
-while true; do start_tunnel; sleep 5; done
-EOF
-chmod +x /usr/local/bin/galaxybook-iphone-tunnel.sh
-
+# Servicio systemd MagicProxy (sustituye el script antiguo)
 cat << 'EOF' > /etc/systemd/system/galaxybook-iphone-tunnel.service
 [Unit]
-Description=Galaxy Book Native iPhone SOCKS5 Tunnel Daemon
+Description=MagicProxy Native iPhone Tunnel Daemon (PairApp 1:1)
 After=network-online.target NetworkManager.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/galaxybook-iphone-tunnel.sh
+ExecStart=/usr/local/bin/magicproxy-daemon
 Restart=always
-RestartSec=5
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload 2>/dev/null || true
 systemctl enable --now galaxybook-iphone-tunnel.service 2>/dev/null || true
-echo "✓ Túnel de iPhone permanente activado como demonio en segundo plano (arranque automático)."
+echo "✓ MagicProxy (PairApp 1:1) activado como demonio nativo con descubrimiento Bonjour mDNS y protección WebRTC IPv6."
 
 # ------------------------------------------------------------------------------
 # 8. PLING SERVER Y APPLET EN BARRA SUPERIOR (AUTOSTART SIEMPRE EN EL FONDO)
@@ -557,6 +530,20 @@ WantedBy=multi-user.target
 EOF
     systemctl daemon-reload 2>/dev/null || true
     systemctl enable --now pling-server.service 2>/dev/null || true
+
+    # Reglas udev para inyección de eventos sin root (/dev/uinput)
+    if [ -f "$PLING_DIR/udev/99-pling-uinput.rules" ]; then
+        mkdir -p /etc/udev/rules.d /usr/lib/udev/rules.d 2>/dev/null || true
+        cp -f "$PLING_DIR/udev/99-pling-uinput.rules" /etc/udev/rules.d/ 2>/dev/null || true
+        cp -f "$PLING_DIR/udev/99-pling-uinput.rules" /usr/lib/udev/rules.d/ 2>/dev/null || true
+    fi
+    mkdir -p /etc/modules-load.d 2>/dev/null || true
+    echo "uinput" > /etc/modules-load.d/pling-uinput.conf 2>/dev/null || true
+    modprobe uinput 2>/dev/null || true
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules 2>/dev/null || true
+        udevadm trigger --name-match=uinput 2>/dev/null || true
+    fi
 
     # Autostart para la barra superior (Top Bar) en cada inicio de sesión
     mkdir -p /etc/xdg/autostart /etc/skel/.config/autostart "/home/${ACTUAL_USER}/.config/autostart"
@@ -924,7 +911,10 @@ cat << 'EOF' > /etc/udev/rules.d/99-hide-windows-partitions.rules
 # Ocultar partición EFI y partición de Windows (NTFS) de la barra lateral de Files/Nautilus
 KERNEL=="nvme*p1", ENV{UDISKS_IGNORE}="1"
 KERNEL=="nvme*p2", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", ENV{ID_PART_ENTRY_TYPE}=="c12a7328-f81f-11d2-ba4b-00a0c93ec93b", ENV{UDISKS_IGNORE}="1"
 SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="ntfs", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="*EFI*", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="EFI", ENV{UDISKS_IGNORE}="1"
 SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="vfat", ENV{ID_FS_LABEL}=="*EFI*", ENV{UDISKS_IGNORE}="1"
 EOF
 udevadm control --reload-rules || true

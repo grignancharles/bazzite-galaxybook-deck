@@ -1,7 +1,7 @@
 """
 Input Injection Module for Pling Server Linux.
 Translates Quest touch gestures and VR keyboard inputs into native Linux
-input events using /dev/uinput.
+input events using /dev/uinput (with xdotool / ydotool fallback).
 """
 
 import os
@@ -9,7 +9,9 @@ import sys
 import time
 import fcntl
 import struct
+import shutil
 import logging
+import subprocess
 from typing import Optional
 from pling.protocol import (
     TOUCH_ACTION_TAP,
@@ -108,6 +110,7 @@ KEY_UP = 103
 KEY_LEFT = 105
 KEY_RIGHT = 106
 KEY_DOWN = 108
+KEY_DELETE = 111
 
 # Mapping macOS virtual keycodes (sent by Quest VR keyboard) to Linux Keycodes
 MAC_TO_LINUX_KEYCODES = {
@@ -116,6 +119,7 @@ MAC_TO_LINUX_KEYCODES = {
     0x30: KEY_TAB,        # 48
     0x31: KEY_SPACE,      # 49
     0x35: KEY_ESC,        # 53
+    0x75: KEY_DELETE,     # 117
     0x7B: KEY_LEFT,       # 123
     0x7C: KEY_RIGHT,      # 124
     0x7D: KEY_DOWN,       # 125
@@ -158,7 +162,7 @@ CHAR_TO_KEY = {
     '/': (KEY_SLASH, False), '?': (KEY_SLASH, True),
 }
 
-# Linux Uinput ioctl numbers
+# Linux Uinput ioctls
 UI_SET_EVBIT   = 0x40045564
 UI_SET_KEYBIT  = 0x40045565
 UI_SET_RELBIT  = 0x40045566
@@ -166,40 +170,40 @@ UI_SET_ABSBIT  = 0x40045567
 UI_DEV_CREATE  = 0x5501
 UI_DEV_DESTROY = 0x5502
 
-# Coordinates range for absolute touchscreen/pointer (0..32767)
 ABS_MAX_COORD = 32767
 
 class InputInjector:
     """
     Creates and controls a virtual input device via /dev/uinput.
+    Provides fallback to xdotool / ydotool if /dev/uinput is restricted.
     """
-    def __init__(self, screen_width: int = 1920, screen_height: int = 1080):
-        self.screen_width = screen_width
-        self.screen_height = screen_height
+    def __init__(self, screen_w: int = 1920, screen_h: int = 1080):
+        self.screen_w = screen_w
+        self.screen_h = screen_h
         self._fd: Optional[int] = None
         self._available = False
+        self._xdotool = shutil.which("xdotool")
+        self._ydotool = shutil.which("ydotool")
         self._init_uinput()
 
     @property
     def is_available(self) -> bool:
-        return self._available
+        return self._available or bool(self._xdotool or self._ydotool)
 
     def _init_uinput(self) -> None:
-        if not sys.platform.startswith("linux"):
-            logger.warning("Non-Linux platform: /dev/uinput simulation mode.")
-            return
-
-        if not os.path.exists("/dev/uinput"):
-            logger.warning("/dev/uinput device not found. Ensure 'uinput' kernel module is loaded.")
+        uinput_paths = ["/dev/uinput", "/dev/input/uinput"]
+        path = next((p for p in uinput_paths if os.path.exists(p)), None)
+        if not path:
+            logger.warning("No /dev/uinput device node found on system.")
             return
 
         try:
-            self._fd = os.open("/dev/uinput", os.O_WRONLY | os.O_NONBLOCK)
+            self._fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
         except PermissionError:
-            logger.error("Permission denied opening /dev/uinput. Run as root or install 99-pling-uinput.rules.")
+            logger.warning(f"Permission denied accessing {path}. Run with appropriate udev rule or sudo.")
             return
         except Exception as e:
-            logger.error(f"Failed to open /dev/uinput: {e}")
+            logger.warning(f"Failed to open {path}: {e}")
             return
 
         try:
@@ -209,62 +213,62 @@ class InputInjector:
             fcntl.ioctl(self._fd, UI_SET_EVBIT, EV_REL)
             fcntl.ioctl(self._fd, UI_SET_EVBIT, EV_ABS)
 
-            # Enable Mouse / Touch Buttons
+            # Enable Mouse Buttons
             for btn in (BTN_LEFT, BTN_RIGHT, BTN_MIDDLE, BTN_TOUCH):
                 fcntl.ioctl(self._fd, UI_SET_KEYBIT, btn)
 
-            # Enable Scroll Wheels
+            # Enable Wheels
             for rel in (REL_X, REL_Y, REL_WHEEL, REL_HWHEEL):
                 fcntl.ioctl(self._fd, UI_SET_RELBIT, rel)
 
-            # Enable Absolute Coordinates
-            for abs_code in (ABS_X, ABS_Y):
-                fcntl.ioctl(self._fd, UI_SET_ABSBIT, abs_code)
+            # Enable Absolute Coordinates (Touch)
+            for abs_axis in (ABS_X, ABS_Y):
+                fcntl.ioctl(self._fd, UI_SET_ABSBIT, abs_axis)
 
-            # Enable All Keyboard Keys
-            for keycode in range(1, 256):
-                fcntl.ioctl(self._fd, UI_SET_KEYBIT, keycode)
+            # Enable all keyboard keys
+            for key in range(1, 128):
+                fcntl.ioctl(self._fd, UI_SET_KEYBIT, key)
 
-            # Setup legacy uinput_user_dev struct
-            # name (80B) + id (bustype 2B, vendor 2B, product 2B, version 2B) + ff_effects_max (4B)
-            # + absmax (64*4B) + absmin (64*4B) + absfuzz (64*4B) + absflat (64*4B)
-            name = b"Pling Virtual Quest Controller\x00"
-            name = name.ljust(80, b"\x00")
-            id_data = struct.pack("<HHHH", 0x03, 0x1234, 0x5678, 1) # USB bustype
-            ff_max = struct.pack("<I", 0)
+            # Define device structure (uinput_user_dev)
+            dev_name = b"Pling Quest Virtual Pointer & Keyboard\x00"
+            bus_type = 0x03  # BUS_USB
+            vendor = 0x2833  # Oculus / Meta Vendor ID
+            product = 0x0001
+            version = 1
 
-            absmax = [0] * 64
-            absmin = [0] * 64
-            absfuzz = [0] * 64
-            absflat = [0] * 64
+            uinput_dev = bytearray(dev_name.ljust(80, b'\x00'))
+            uinput_dev.extend(struct.pack("<HHHI", bus_type, vendor, product, version))
+            uinput_dev.extend(struct.pack("<i", 0))  # ff_effects_max
 
-            absmax[ABS_X] = ABS_MAX_COORD
-            absmax[ABS_Y] = ABS_MAX_COORD
+            # absmax, absmin, absfuzz, absflat for ABS_X
+            abs_axes = [0] * 64
+            abs_axes[ABS_X] = ABS_MAX_COORD
+            abs_axes[ABS_Y] = ABS_MAX_COORD
+            for val in abs_axes:
+                uinput_dev.extend(struct.pack("<i", val))
+            # absmin
+            for _ in range(64):
+                uinput_dev.extend(struct.pack("<i", 0))
+            # absfuzz
+            for _ in range(64):
+                uinput_dev.extend(struct.pack("<i", 0))
+            # absflat
+            for _ in range(64):
+                uinput_dev.extend(struct.pack("<i", 0))
 
-            absmax_bytes = struct.pack(f"<{len(absmax)}i", *absmax)
-            absmin_bytes = struct.pack(f"<{len(absmin)}i", *absmin)
-            absfuzz_bytes = struct.pack(f"<{len(absfuzz)}i", *absfuzz)
-            absflat_bytes = struct.pack(f"<{len(absflat)}i", *absflat)
-
-            uinput_dev = name + id_data + ff_max + absmax_bytes + absmin_bytes + absfuzz_bytes + absflat_bytes
-            os.write(self._fd, uinput_dev)
-
-            # Create device
+            os.write(self._fd, bytes(uinput_dev))
             fcntl.ioctl(self._fd, UI_DEV_CREATE)
             self._available = True
-            logger.info("Successfully registered /dev/uinput virtual controller.")
-
+            logger.info("Virtual uinput device initialized for Quest remote pointer & keyboard.")
         except Exception as e:
-            logger.error(f"Error configuring /dev/uinput: {e}")
+            logger.warning(f"Error configuring uinput virtual device: {e}")
             if self._fd is not None:
                 os.close(self._fd)
                 self._fd = None
 
     def _write_event(self, ev_type: int, code: int, value: int) -> None:
-        if not self._available or self._fd is None:
+        if self._fd is None:
             return
-        # struct input_event: timeval (16 bytes on 64-bit), type (2 bytes), code (2 bytes), value (4 bytes)
-        # Note: on 64-bit Linux timeval is two 64-bit longs (16 bytes). We can pass 0 for timestamp.
         now = time.time()
         tv_sec = int(now)
         tv_usec = int((now - tv_sec) * 1_000_000)
@@ -279,70 +283,80 @@ class InputInjector:
 
     def handle_touch(self, action: int, nx: float, ny: float) -> None:
         """
-        Translates normalized (0.0 to 1.0) coordinates and actions into Linux events.
+        Translates normalized coordinates (0.0 to 1.0) and action IDs into native input events.
         """
         abs_x = max(0, min(ABS_MAX_COORD, int(nx * ABS_MAX_COORD)))
         abs_y = max(0, min(ABS_MAX_COORD, int(ny * ABS_MAX_COORD)))
 
-        if action == TOUCH_ACTION_TAP:
-            # Move -> Left Down -> Left Up
-            self._write_event(EV_ABS, ABS_X, abs_x)
-            self._write_event(EV_ABS, ABS_Y, abs_y)
-            self._write_event(EV_KEY, BTN_TOUCH, 1)
-            self._write_event(EV_KEY, BTN_LEFT, 1)
-            self._syn()
-            time.sleep(0.01)
-            self._write_event(EV_KEY, BTN_TOUCH, 0)
-            self._write_event(EV_KEY, BTN_LEFT, 0)
-            self._syn()
+        px = int(nx * self.screen_w)
+        py = int(ny * self.screen_h)
 
-        elif action == TOUCH_ACTION_LONG_PRESS:
-            # Move -> Right Down -> Right Up
-            self._write_event(EV_ABS, ABS_X, abs_x)
-            self._write_event(EV_ABS, ABS_Y, abs_y)
-            self._write_event(EV_KEY, BTN_RIGHT, 1)
-            self._syn()
-            time.sleep(0.01)
-            self._write_event(EV_KEY, BTN_RIGHT, 0)
-            self._syn()
+        if self._available and self._fd is not None:
+            if action == TOUCH_ACTION_TAP:
+                self._write_event(EV_ABS, ABS_X, abs_x)
+                self._write_event(EV_ABS, ABS_Y, abs_y)
+                self._write_event(EV_KEY, BTN_TOUCH, 1)
+                self._write_event(EV_KEY, BTN_LEFT, 1)
+                self._syn()
+                time.sleep(0.01)
+                self._write_event(EV_KEY, BTN_TOUCH, 0)
+                self._write_event(EV_KEY, BTN_LEFT, 0)
+                self._syn()
 
-        elif action == TOUCH_ACTION_SCROLL:
-            # nx, ny are normalized deltas. Scale to fluid wheel clicks.
-            scroll_y = int(ny * -10.0) # standard wheel direction
-            scroll_x = int(nx * 10.0)
-            if scroll_y != 0:
-                self._write_event(EV_REL, REL_WHEEL, scroll_y)
-            if scroll_x != 0:
-                self._write_event(EV_REL, REL_HWHEEL, scroll_x)
-            self._syn()
+            elif action == TOUCH_ACTION_LONG_PRESS:
+                self._write_event(EV_ABS, ABS_X, abs_x)
+                self._write_event(EV_ABS, ABS_Y, abs_y)
+                self._write_event(EV_KEY, BTN_RIGHT, 1)
+                self._syn()
+                time.sleep(0.01)
+                self._write_event(EV_KEY, BTN_RIGHT, 0)
+                self._syn()
 
-        elif action == TOUCH_ACTION_DRAG_START:
-            self._write_event(EV_ABS, ABS_X, abs_x)
-            self._write_event(EV_ABS, ABS_Y, abs_y)
-            self._write_event(EV_KEY, BTN_LEFT, 1)
-            self._write_event(EV_KEY, BTN_TOUCH, 1)
-            self._syn()
+            elif action == TOUCH_ACTION_SCROLL:
+                scroll_y = int(ny * -12.0)
+                scroll_x = int(nx * 12.0)
+                if scroll_y != 0:
+                    self._write_event(EV_REL, REL_WHEEL, scroll_y)
+                if scroll_x != 0:
+                    self._write_event(EV_REL, REL_HWHEEL, scroll_x)
+                self._syn()
 
-        elif action == TOUCH_ACTION_DRAG_MOVE:
-            self._write_event(EV_ABS, ABS_X, abs_x)
-            self._write_event(EV_ABS, ABS_Y, abs_y)
-            self._syn()
+            elif action == TOUCH_ACTION_DRAG_START:
+                self._write_event(EV_ABS, ABS_X, abs_x)
+                self._write_event(EV_ABS, ABS_Y, abs_y)
+                self._write_event(EV_KEY, BTN_LEFT, 1)
+                self._write_event(EV_KEY, BTN_TOUCH, 1)
+                self._syn()
 
-        elif action == TOUCH_ACTION_DRAG_END:
-            self._write_event(EV_ABS, ABS_X, abs_x)
-            self._write_event(EV_ABS, ABS_Y, abs_y)
-            self._write_event(EV_KEY, BTN_LEFT, 0)
-            self._write_event(EV_KEY, BTN_TOUCH, 0)
-            self._syn()
+            elif action == TOUCH_ACTION_DRAG_MOVE:
+                self._write_event(EV_ABS, ABS_X, abs_x)
+                self._write_event(EV_ABS, ABS_Y, abs_y)
+                self._syn()
 
-        elif action == TOUCH_ACTION_MOVE:
-            self._write_event(EV_ABS, ABS_X, abs_x)
-            self._write_event(EV_ABS, ABS_Y, abs_y)
-            self._syn()
+            elif action == TOUCH_ACTION_DRAG_END:
+                self._write_event(EV_ABS, ABS_X, abs_x)
+                self._write_event(EV_ABS, ABS_Y, abs_y)
+                self._write_event(EV_KEY, BTN_LEFT, 0)
+                self._write_event(EV_KEY, BTN_TOUCH, 0)
+                self._syn()
+
+            elif action == TOUCH_ACTION_MOVE:
+                self._write_event(EV_ABS, ABS_X, abs_x)
+                self._write_event(EV_ABS, ABS_Y, abs_y)
+                self._syn()
+        else:
+            # Fallback to xdotool if uinput is unavailable
+            if self._xdotool:
+                if action == TOUCH_ACTION_TAP:
+                    subprocess.run([self._xdotool, "mousemove", str(px), str(py), "click", "1"], stdout=subprocess.DEVNULL)
+                elif action == TOUCH_ACTION_LONG_PRESS:
+                    subprocess.run([self._xdotool, "mousemove", str(px), str(py), "click", "3"], stdout=subprocess.DEVNULL)
+                elif action == TOUCH_ACTION_MOVE:
+                    subprocess.run([self._xdotool, "mousemove", str(px), str(py)], stdout=subprocess.DEVNULL)
 
     def handle_keyboard(self, kind: int, data: bytes) -> None:
         """
-        Translates VR keyboard input to Linux keystrokes.
+        Translates VR keyboard input into native Linux key events.
         """
         if kind == KEYBOARD_KIND_TEXT:
             try:
@@ -359,34 +373,40 @@ class InputInjector:
                 if linux_code is not None:
                     self.press_key(linux_code)
                 else:
-                    logger.debug(f"Unmapped macOS keycode: {hex(mac_code)}")
+                    logger.debug(f"Unmapped macOS virtual keycode: {hex(mac_code)}")
 
     def press_key(self, keycode: int) -> None:
-        self._write_event(EV_KEY, keycode, 1)
-        self._syn()
-        time.sleep(0.005)
-        self._write_event(EV_KEY, keycode, 0)
-        self._syn()
+        if self._available and self._fd is not None:
+            self._write_event(EV_KEY, keycode, 1)
+            self._syn()
+            time.sleep(0.005)
+            self._write_event(EV_KEY, keycode, 0)
+            self._syn()
+        elif self._xdotool:
+            subprocess.run([self._xdotool, "key", str(keycode)], stdout=subprocess.DEVNULL)
 
     def type_char(self, ch: str) -> None:
-        mapping = CHAR_TO_KEY.get(ch)
-        if not mapping:
-            logger.debug(f"No direct mapping for character: {ch!r}")
-            return
-        code, need_shift = mapping
-        if need_shift:
-            self._write_event(EV_KEY, KEY_LEFTSHIFT, 1)
+        if self._available and self._fd is not None:
+            mapping = CHAR_TO_KEY.get(ch)
+            if not mapping:
+                logger.debug(f"No direct keycode mapping for character: {ch!r}")
+                return
+            code, need_shift = mapping
+            if need_shift:
+                self._write_event(EV_KEY, KEY_LEFTSHIFT, 1)
+                self._syn()
+
+            self._write_event(EV_KEY, code, 1)
+            self._syn()
+            time.sleep(0.002)
+            self._write_event(EV_KEY, code, 0)
             self._syn()
 
-        self._write_event(EV_KEY, code, 1)
-        self._syn()
-        time.sleep(0.002)
-        self._write_event(EV_KEY, code, 0)
-        self._syn()
-
-        if need_shift:
-            self._write_event(EV_KEY, KEY_LEFTSHIFT, 0)
-            self._syn()
+            if need_shift:
+                self._write_event(EV_KEY, KEY_LEFTSHIFT, 0)
+                self._syn()
+        elif self._xdotool:
+            subprocess.run([self._xdotool, "type", "--", ch], stdout=subprocess.DEVNULL)
 
     def close(self) -> None:
         if self._fd is not None:
