@@ -138,10 +138,20 @@ export VKD3D_CONFIG_FILE=/etc/vkd3d.conf
 export VKD3D_CONFIG=no_upload_hvv,force_static_cbv
 export VKD3D_FEATURE_LEVEL=12_1
 export VKD3D_DISABLE_EXTENSIONS="VK_EXT_mesh_shader"
+
+# Configuración Universal de Renderizado 720p -> 1080p con Intel XeSS (DP4a)
 export INTEL_XESS_DP4A=1
-export SDL_VIDEODRIVER=wayland,x11
+export XESS_FORCE_DP4A=1
 export WINE_FULLSCREEN_FSR=1
 export WINE_FULLSCREEN_FSR_STRENGTH=2
+export WINE_FULLSCREEN_FSR_MODE=ultra
+export SDL_VIDEODRIVER=wayland,x11
+
+export GAMESCOPE_OUTPUT_WIDTH=1920
+export GAMESCOPE_OUTPUT_HEIGHT=1080
+export GAMESCOPE_OUTPUT_REFRESH=60
+export GAMESCOPE_DEFAULT_RENDER_WIDTH=1280
+export GAMESCOPE_DEFAULT_RENDER_HEIGHT=720
 EOF
 chmod +x /etc/profile.d/intel-xe-gaming.sh
 
