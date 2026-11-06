@@ -678,5 +678,3 @@ echo "║  ✓ Batería protegida al 85% de carga máxima                       
 echo "║  ✓ Blindaje de arranque EFI fallback garantizado                   ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
-EOF
-chmod +x /Users/carlosgrinan/Documents/GSTEAMOS/install-all-in-one.sh
