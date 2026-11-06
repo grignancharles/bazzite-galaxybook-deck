@@ -612,9 +612,9 @@ if command -v rpm-ostree >/dev/null 2>&1; then
 fi
 
 # ------------------------------------------------------------------------------
-# 11. SOPORTE DE DISCOS EXTERNOS DE MAC (APFS, HFS+, EXFAT) Y PLATAFORMA SAMSUNG
+# 11. SOPORTE DE DISCOS EXTERNOS DE MAC (APFS FUSE, HFS+, EXFAT) Y PLATAFORMA SAMSUNG
 # ------------------------------------------------------------------------------
-echo "→ 11/16 Configurando soporte de plataforma Samsung Galaxy Book y discos Mac..."
+echo "→ 11/16 Configurando soporte de plataforma Samsung Galaxy Book y discos Mac (APFS)..."
 cat << 'EOF' > /etc/modules-load.d/samsung-platform.conf
 samsung_galaxybook
 EOF
@@ -622,9 +622,19 @@ EOF
 cat << 'EOF' > /etc/modules-load.d/apple-filesystems.conf
 hfs
 hfsplus
-apfs
 fuse
 EOF
+
+# Instalar binarios de APFS FUSE incluidos offline
+mkdir -p /usr/local/bin /usr/local/sbin
+if [ -f "${SCRIPT_DIR}/bin/apfs-fuse" ]; then
+    cp -f "${SCRIPT_DIR}/bin/apfs-fuse" /usr/local/bin/apfs-fuse
+    cp -f "${SCRIPT_DIR}/bin/mount.apfs" /usr/local/sbin/mount.apfs
+    cp -f "${SCRIPT_DIR}/bin/mount.apfs" /usr/local/bin/mount.apfs
+    cp -f "${SCRIPT_DIR}/bin/apfsutil" /usr/local/bin/apfsutil 2>/dev/null || true
+    chmod +x /usr/local/bin/apfs-fuse /usr/local/sbin/mount.apfs /usr/local/bin/mount.apfs /usr/local/bin/apfsutil 2>/dev/null || true
+    echo "✓ Controlador apfs-fuse y mount.apfs instalados en /usr/local/bin"
+fi
 
 # Script automático de detección y montaje de volúmenes APFS y HFS+ de Mac
 cat << 'EOF' > /usr/local/bin/galaxybook-apfs-mount.sh
@@ -645,10 +655,12 @@ lsblk -l -o NAME,LABEL,FSTYPE 2>/dev/null | grep -iE "apfs|hfsplus" | while read
         mkdir -p "$MOUNT_POINT"
         USER_UID=$(id -u "$ACTUAL_USER" 2>/dev/null || echo "1000")
         if echo "$fstype" | grep -qi "apfs"; then
-            if command -v apfs-fuse >/dev/null 2>&1; then
+            if [ -x "/usr/local/bin/apfs-fuse" ]; then
+                /usr/local/bin/apfs-fuse -o allow_other,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
+            elif command -v apfs-fuse >/dev/null 2>&1; then
                 apfs-fuse -o allow_other,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
             else
-                mount -t apfs -o ro,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
+                /usr/local/sbin/mount.apfs "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
             fi
         else
             mount -t hfsplus -o ro,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
