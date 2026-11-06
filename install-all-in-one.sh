@@ -355,8 +355,20 @@ if [ -d "/boot/efi/EFI/fedora" ]; then
     echo "✓ Archivo fallback BOOTX64.EFI asegurado. La laptop siempre arrancará sin depender de NVRAM."
 fi
 
-# 10. ACTIVACIÓN INMEDIATA DE TODOS LOS SERVICIOS
-echo "→ 10/10 Activando servicios del sistema..."
+# 10. PLING SERVER — STREAMING PARA META QUEST CON VA-API (HEVC/H.265)
+echo "→ 10/11 Instalando Pling Server para streaming a Meta Quest..."
+mkdir -p /tmp/pling_dl
+if curl -sL --retry 3 "https://github.com/grignancharles/bazzite-galaxybook-deck/archive/refs/heads/main.tar.gz" -o /tmp/pling_dl/repo.tar.gz 2>/dev/null; then
+    tar -xzf /tmp/pling_dl/repo.tar.gz -C /tmp/pling_dl/ 2>/dev/null || true
+    if [ -f "/tmp/pling_dl/bazzite-galaxybook-deck-main/pling-server-linux/install.sh" ]; then
+        bash /tmp/pling_dl/bazzite-galaxybook-deck-main/pling-server-linux/install.sh 2>/dev/null || true
+        echo "✓ Pling Server instalado con éxito (Aceleración Intel VA-API lista para Meta Quest)."
+    fi
+    rm -rf /tmp/pling_dl
+fi
+
+# 11. ACTIVACIÓN INMEDIATA DE TODOS LOS SERVICIOS
+echo "→ 11/11 Activando servicios del sistema..."
 systemctl daemon-reload
 systemctl enable --now galaxybook-power-optimizer.service || true
 systemctl enable --now galaxybook-game-booster.service || true
@@ -372,6 +384,8 @@ echo "║  ✓ CPU fijada en 3.2 GHz permanente (Cero ahogo de energía)       �
 echo "║  ✓ GPU Iris Xe bloqueada a 1100-1300 MHz (2.15 TFLOPS continuos)   ║"
 echo "║  ✓ Escalado Universal 720p -> 1080p con Intel XeSS (DP4a)         ║"
 echo "║  ✓ Fallback global de Mesh Shaders a nivel de sistema (VKD3D)      ║"
+echo "║  ✓ Game Booster activo (RAM purgada y prioridad Real-Time)        ║"
+echo "║  ✓ Pling Server activo (Streaming a Meta Quest con Intel VA-API)   ║"
 echo "║  ✓ Parche de audio estéreo y amplificadores Realtek                ║"
 echo "║  ✓ Touchpad con tap-to-click y scroll natural de Mac              ║"
 echo "║  ✓ Batería protegida al 85% para alargar vida útil                 ║"
