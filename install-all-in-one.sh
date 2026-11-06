@@ -40,7 +40,8 @@ echo "✓ Tecla Enter remapeada. Desde ahora la tecla '\' es tu ENTER real."
 
 # 2. PERFIL DE POTENCIA PERMANENTE 24/7 (CPU 3.2GHz, GPU 1300MHz, RAPL 28W/35W)
 echo "→ 2/8 Instalando servicio de optimización de potencia permanente 24/7..."
-cat << 'EOF' > /usr/libexec/galaxybook-power-optimizer.sh
+mkdir -p /usr/local/bin
+cat << 'EOF' > /usr/local/bin/galaxybook-power-optimizer.sh
 #!/bin/bash
 set -u
 log() { logger -t "galaxybook-power" "$1"; echo "[$(date '+%H:%M:%S')] $1"; }
@@ -89,7 +90,7 @@ while true; do
     sleep 15
 done
 EOF
-chmod +x /usr/libexec/galaxybook-power-optimizer.sh
+chmod +x /usr/local/bin/galaxybook-power-optimizer.sh
 
 cat << 'EOF' > /etc/systemd/system/galaxybook-power-optimizer.service
 [Unit]
@@ -99,7 +100,7 @@ Wants=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/libexec/galaxybook-power-optimizer.sh
+ExecStart=/usr/local/bin/galaxybook-power-optimizer.sh
 Restart=always
 RestartSec=5
 
@@ -109,7 +110,7 @@ EOF
 
 # 2.1 AGGRESSIVE GAME BOOSTER & PROCESS TRIMMER
 echo "→ Instalando Game Booster (Limpieza de RAM y congelamiento de procesos de fondo)..."
-cat << 'EOF' > /usr/libexec/galaxybook-game-booster.sh
+cat << 'EOF' > /usr/local/bin/galaxybook-game-booster.sh
 #!/bin/bash
 set -u
 log() { logger -t "galaxybook-booster" "$1"; echo "[$(date '+%H:%M:%S')] [BOOSTER] $1"; }
@@ -119,10 +120,10 @@ BACKGROUND_PROCESSES=("baloo_file" "tracker-miner-fs" "tracker-extract" "evoluti
 is_game_running() { pgrep -f "pressure-vessel|wine64-preloader|wineserver|steamapps/common" >/dev/null 2>&1; }
 
 boost_game_start() {
-    log "🚀 Juego detectado. Congelando tareas de fondo y purgando RAM..."
+    log "🚀 Juego detectado. Congelando tareas de fondo y optimizando RAM..."
     for p in "${BACKGROUND_PROCESSES[@]}"; do pkill -STOP -f "$p" 2>/dev/null || true; done
     for s in "${BACKGROUND_SERVICES[@]}"; do systemctl stop "$s.service" 2>/dev/null || true; done
-    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    sync && echo 1 > /proc/sys/vm/drop_caches 2>/dev/null || true
     echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
     for pid in $(pgrep -f "pressure-vessel|wine64-preloader|steamapps/common"); do
         renice -n -10 -p "$pid" 2>/dev/null || true
@@ -146,7 +147,7 @@ while true; do
     sleep 3
 done
 EOF
-chmod +x /usr/libexec/galaxybook-game-booster.sh
+chmod +x /usr/local/bin/galaxybook-game-booster.sh
 
 cat << 'EOF' > /etc/systemd/system/galaxybook-game-booster.service
 [Unit]
@@ -156,7 +157,7 @@ Wants=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/libexec/galaxybook-game-booster.sh
+ExecStart=/usr/local/bin/galaxybook-game-booster.sh
 Restart=always
 RestartSec=5
 
@@ -223,7 +224,7 @@ chmod +x /etc/profile.d/intel-xe-gaming.sh
 
 # 4. PARCHE DE AUDIO SOF Y ALTAVOCES REALTEK ALC298
 echo "→ 4/8 Configurando audio interno y amplificador Realtek ALC298..."
-cat << 'EOF' > /usr/libexec/galaxybook-audio-fix.sh
+cat << 'EOF' > /usr/local/bin/galaxybook-audio-fix.sh
 #!/bin/bash
 set -u
 for i in {1..10}; do [ -d "/proc/asound/card0" ] && break; sleep 1; done
@@ -239,7 +240,7 @@ if command -v amixer >/dev/null 2>&1; then
     amixer -c 0 sset Headphone unmute 2>/dev/null || true
 fi
 EOF
-chmod +x /usr/libexec/galaxybook-audio-fix.sh
+chmod +x /usr/local/bin/galaxybook-audio-fix.sh
 
 cat << 'EOF' > /etc/systemd/system/galaxybook-audio-fix.service
 [Unit]
@@ -249,7 +250,7 @@ Wants=sound.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/libexec/galaxybook-audio-fix.sh
+ExecStart=/usr/local/bin/galaxybook-audio-fix.sh
 RemainAfterExit=yes
 
 [Install]
@@ -258,7 +259,7 @@ EOF
 
 # 5. TÚNEL PERMANENTE DE IPHONE (TUN2SOCKS)
 echo "→ 5/8 Configurando servicio automático de Hotspot de iPhone..."
-cat << 'EOF' > /usr/libexec/galaxybook-iphone-tunnel.sh
+cat << 'EOF' > /usr/local/bin/galaxybook-iphone-tunnel.sh
 #!/bin/bash
 set -u
 IPHONE_IP="172.20.10.1"
@@ -286,7 +287,7 @@ start_tunnel() {
 
 while true; do start_tunnel; sleep 5; done
 EOF
-chmod +x /usr/libexec/galaxybook-iphone-tunnel.sh
+chmod +x /usr/local/bin/galaxybook-iphone-tunnel.sh
 
 cat << 'EOF' > /etc/systemd/system/galaxybook-iphone-tunnel.service
 [Unit]
@@ -296,7 +297,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/libexec/galaxybook-iphone-tunnel.sh
+ExecStart=/usr/local/bin/galaxybook-iphone-tunnel.sh
 Restart=always
 RestartSec=5
 
@@ -306,8 +307,8 @@ EOF
 
 # 6. TOUCHPAD ESTILO MACBOOK
 echo "→ 6/8 Configurando Touchpad estilo MacBook (tap-to-click, natural scroll)..."
-mkdir -p /usr/share/X11/xorg.conf.d
-cat << 'EOF' > /usr/share/X11/xorg.conf.d/30-touchpad.conf
+mkdir -p /etc/X11/xorg.conf.d
+cat << 'EOF' > /etc/X11/xorg.conf.d/30-touchpad.conf
 Section "InputClass"
     Identifier "touchpad"
     Driver "libinput"
