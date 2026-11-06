@@ -452,6 +452,86 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable --now galaxybook-iphone-tunnel.service 2>/dev/null || true
+echo "✓ Túnel de iPhone permanente activado como demonio en segundo plano (arranque automático)."
+
+# ------------------------------------------------------------------------------
+# 8. PLING SERVER Y APPLET EN BARRA SUPERIOR (AUTOSTART SIEMPRE EN EL FONDO)
+# ------------------------------------------------------------------------------
+echo "→ 8/16 Instalando Pling Server y Applet de barra superior (Siempre en el fondo)..."
+PLING_DIR="${SCRIPT_DIR}/pling-server-linux"
+if [ -d "$PLING_DIR" ]; then
+    mkdir -p /usr/local/share/pling/pling /usr/local/share/pling/assets /usr/local/bin
+    cp -rf "$PLING_DIR/pling/"* /usr/local/share/pling/pling/ 2>/dev/null || true
+    cp -rf "$PLING_DIR/assets/"* /usr/local/share/pling/assets/ 2>/dev/null || true
+    
+    cat << 'EOF' > /usr/local/bin/pling-server
+#!/usr/bin/env python3
+import sys
+sys.path.insert(0, "/usr/local/share/pling")
+from pling.cli import main
+if __name__ == "__main__":
+    main()
+EOF
+
+    cat << 'EOF' > /usr/local/bin/pling-tray
+#!/usr/bin/env python3
+import sys
+sys.path.insert(0, "/usr/local/share/pling")
+from pling.tray import main
+if __name__ == "__main__":
+    main()
+EOF
+
+    cat << 'EOF' > /usr/local/bin/pling-ctl
+#!/usr/bin/env python3
+import sys
+sys.path.insert(0, "/usr/local/share/pling")
+from pling.cli import main
+if __name__ == "__main__":
+    main()
+EOF
+    chmod +x /usr/local/bin/pling-server /usr/local/bin/pling-tray /usr/local/bin/pling-ctl 2>/dev/null || true
+
+    # Demonio del sistema en segundo plano (arranque automático en boot)
+    cat << 'EOF' > /etc/systemd/system/pling-server.service
+[Unit]
+Description=Pling Server Linux - Meta Quest 2D Streaming Daemon
+After=network.target sound.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/pling-server serve
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable --now pling-server.service 2>/dev/null || true
+
+    # Autostart para la barra superior (Top Bar) en cada inicio de sesión
+    mkdir -p /etc/xdg/autostart /etc/skel/.config/autostart "/home/${ACTUAL_USER}/.config/autostart"
+    cat << 'EOF' > /etc/xdg/autostart/pling-tray.desktop
+[Desktop Entry]
+Name=Pling Server Tray
+Comment=Indicador de estado de Pling en la barra superior
+Exec=/usr/local/bin/pling-tray
+Icon=/usr/local/share/pling/assets/pling-icon-idle.svg
+Terminal=false
+Type=Application
+Categories=Utility;Network;
+X-GNOME-Autostart-enabled=true
+EOF
+    cp -f /etc/xdg/autostart/pling-tray.desktop /etc/skel/.config/autostart/pling-tray.desktop 2>/dev/null || true
+    cp -f /etc/xdg/autostart/pling-tray.desktop "/home/${ACTUAL_USER}/.config/autostart/pling-tray.desktop" 2>/dev/null || true
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "/home/${ACTUAL_USER}/.config" 2>/dev/null || true
+    echo "✓ Pling Server habilitado como servicio en el fondo y bandeja en la barra superior."
+fi
 
 # ------------------------------------------------------------------------------
 # 9. TOUCHPAD ESTILO MACBOOK (TAP-TO-CLICK, NATURAL SCROLL, VELOCIDAD ÁGIL)
