@@ -487,6 +487,14 @@ accel-profile='adaptive'
 [org/gnome/desktop/peripherals/mouse]
 natural-scroll=false
 speed=0.20
+
+[org/gnome/desktop/input-sources]
+xkb-options=['ctrl:swap_lalt_lctl_lwin', 'ctrl:ralt_rctrl']
+
+[org/gnome/desktop/wm/keybindings]
+switch-applications=['<Super>Tab', '<Alt>Tab', '<Control>Tab']
+switch-applications-backward=['<Super><Shift>Tab', '<Alt><Shift>Tab', '<Control><Shift>Tab']
+close=['<Alt>F4', '<Control>q']
 EOF
 dconf update 2>/dev/null || true
 
@@ -494,16 +502,22 @@ dconf update 2>/dev/null || true
 ACTUAL_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
 if [ -n "$ACTUAL_USER" ] && [ "$ACTUAL_USER" != "root" ]; then
     USER_UID=$(id -u "$ACTUAL_USER" 2>/dev/null || echo "1000")
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus"
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true 2>/dev/null || true
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true 2>/dev/null || true
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad speed 0.25 2>/dev/null || true
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad click-method 'fingers' 2>/dev/null || true
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad tap-and-drag true 2>/dev/null || true
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true 2>/dev/null || true
+    # Atajos de teclado estilo macOS (Alt = Command, Win = Option/Alt, Ctrl = Super/Overview)
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:swap_lalt_lctl_lwin', 'ctrl:ralt_rctrl']" 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Super>Tab', '<Alt>Tab', '<Control>Tab']" 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.keybindings switch-applications-backward "['<Super><Shift>Tab', '<Alt><Shift>Tab', '<Control><Shift>Tab']" 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.keybindings close "['<Alt>F4', '<Control>q']" 2>/dev/null || true
 fi
 
-# Script en /etc/profile.d para asegurar que cualquier inicio de sesión mantenga el touchpad tipo Mac
-cat << 'EOF' > /etc/profile.d/galaxybook-touchpad-macbook.sh
+# Script en /etc/profile.d para asegurar que cualquier inicio de sesión mantenga el touchpad y teclado tipo Mac
+cat << 'EOF' > /etc/profile.d/galaxybook-mac-experience.sh
 #!/bin/sh
 if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true 2>/dev/null || true
@@ -512,6 +526,10 @@ if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.gnome.desktop.peripherals.touchpad click-method 'fingers' 2>/dev/null || true
     gsettings set org.gnome.desktop.peripherals.touchpad tap-and-drag true 2>/dev/null || true
     gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true 2>/dev/null || true
+    gsettings set org.gnome.desktop.input-sources xkb-options "['ctrl:swap_lalt_lctl_lwin', 'ctrl:ralt_rctrl']" 2>/dev/null || true
+    gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Super>Tab', '<Alt>Tab', '<Control>Tab']" 2>/dev/null || true
+    gsettings set org.gnome.desktop.wm.keybindings switch-applications-backward "['<Super><Shift>Tab', '<Alt><Shift>Tab', '<Control><Shift>Tab']" 2>/dev/null || true
+    gsettings set org.gnome.desktop.wm.keybindings close "['<Alt>F4', '<Control>q']" 2>/dev/null || true
 fi
 EOF
 

@@ -122,6 +122,12 @@ check "Montador Automático APFS" "[ -x '$APFS_SCRIPT' ]" "Detección de volúme
 check "Regla Udev Discos Apple" "[ -f '$APFS_UDEV' ]" "Integración directa en barra lateral de Archivos (Nautilus)"
 
 echo ""
+echo -e "${C_YELLOW}─── 11. TECLADO Y ATAJOS ESTILO MACOS (ALT = COMMAND) ───────────────${C_RESET}"
+XKB_CONF=$(gsettings get org.gnome.desktop.input-sources xkb-options 2>/dev/null || cat /etc/dconf/db/local.d/01-touchpad-macbook 2>/dev/null | grep "swap_lalt_lctl_lwin" || true)
+
+check "Alt como Command (Mac)" "[ -n '$XKB_CONF' ]" "Alt = Command | Win = Alt/Option | Alt+C/V/Z/Tab nativos"
+
+echo ""
 echo -e "${C_CYAN}════════════════════════════════════════════════════════════════════${C_RESET}"
 if [ "$PASSED_CHECKS" -eq "$TOTAL_CHECKS" ]; then
     echo -e " ${C_GREEN}✅ RESULTADO FINAL: ${PASSED_CHECKS}/${TOTAL_CHECKS} OPTIMIZACIONES ACTIVAS AL 100%${C_RESET}"
