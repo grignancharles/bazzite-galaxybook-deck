@@ -227,12 +227,37 @@ EOF
 # ------------------------------------------------------------------------------
 echo "→ 5/11 Instalando limitador universal de 30 FPS (33.33ms plano)..."
 cat << 'EOF' > /etc/MangoHud/MangoHud.conf
-# Clava TODOS los juegos a 30 FPS con ritmo de consola (33.3ms) sin mostrar texto en pantalla
+# Clava TODOS los juegos a 30 FPS con ritmo de consola (33.3ms)
 fps_limit=30
 fps_limit_method=early
 vsync=1
 gl_vsync=0
+
+# Por defecto arranca silencioso (limpio como consola)
 no_display=1
+
+# Atajo solicitado: Alt + 9 para mostrar/ocultar el HUD de FPS en cualquier juego
+toggle_hud=Alt_L+9
+
+# Elementos que muestra al presionar Alt + 9:
+fps=1
+frametime=1
+frame_timing=1
+cpu_stats=1
+cpu_temp=1
+cpu_mhz=1
+gpu_stats=1
+gpu_temp=1
+gpu_core_clock=1
+ram=1
+vram=1
+battery=1
+battery_icon=1
+hud_compact=1
+table_columns=3
+font_size=20
+position=top-left
+background_alpha=0.6
 EOF
 
 # ------------------------------------------------------------------------------
