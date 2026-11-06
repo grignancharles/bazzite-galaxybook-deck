@@ -558,9 +558,13 @@ if command -v rpm-ostree >/dev/null 2>&1; then
 fi
 
 # ------------------------------------------------------------------------------
-# 11. SOPORTE DE DISCOS EXTERNOS DE MAC (APFS, HFS+, EXFAT)
+# 11. SOPORTE DE DISCOS EXTERNOS DE MAC (APFS, HFS+, EXFAT) Y PLATAFORMA SAMSUNG
 # ------------------------------------------------------------------------------
-echo "→ 11/12 Agregando soporte para discos externos de macOS (APFS y HFS+)..."
+echo "→ 11/16 Configurando soporte de plataforma Samsung Galaxy Book y discos Mac..."
+cat << 'EOF' > /etc/modules-load.d/samsung-platform.conf
+samsung_galaxybook
+EOF
+
 cat << 'EOF' > /etc/modules-load.d/apple-filesystems.conf
 hfs
 hfsplus
