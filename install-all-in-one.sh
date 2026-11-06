@@ -775,6 +775,16 @@ hfsplus
 fuse
 EOF
 
+# Habilitar user_allow_other en /etc/fuse.conf para que FUSE y udisks2 permitan allow_other
+mkdir -p /etc
+if [ -f "/etc/fuse.conf" ]; then
+    sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
+    grep -q "^user_allow_other" /etc/fuse.conf || echo "user_allow_other" >> /etc/fuse.conf
+else
+    echo "user_allow_other" > /etc/fuse.conf
+fi
+chmod 644 /etc/fuse.conf
+
 # Instalar binarios y wrapper de APFS FUSE incluidos offline
 mkdir -p /usr/local/bin /usr/local/sbin /etc/udisks2
 if [ -f "${SCRIPT_DIR}/bin/apfs-fuse" ]; then
@@ -786,14 +796,8 @@ if [ -f "${SCRIPT_DIR}/bin/apfs-fuse" ]; then
     echo "✓ Controlador apfs-fuse y wrapper mount.apfs instalados en /usr/local/bin"
 fi
 
-# Configurar udisks2 para permitir opciones de montaje FUSE de APFS
-cat << 'EOF' > /etc/udisks2/mount_options.conf
-[defaults]
-apfs_defaults=ro,allow_other
-
-[allowed]
-apfs_allow=readwrite,ro,allow_other,uid,gid,umask,dmask,fmask
-EOF
+# Limpiar configuración previa de udisks2 que causaba el conflicto de allow_other
+rm -f /etc/udisks2/mount_options.conf 2>/dev/null || true
 
 # Script automático de detección y montaje universal para CUALQUIER disco Mac (APFS y HFS+)
 cat << 'EOF' > /usr/local/bin/galaxybook-apfs-mount.sh
@@ -825,6 +829,12 @@ lsblk -l -o NAME,LABEL,FSTYPE 2>/dev/null | grep -iE "apfs|hfsplus|hfs" | while 
     [ -z "$disk" ] && continue
     DISK_DEV="/dev/$disk"
     TARGET_NAME="${label:-$disk}"
+    
+    # Obtener el nombre real del volumen APFS (ej. MessiEnto) con apfsutil si no vino en el label
+    if echo "$fstype" | grep -qi "apfs"; then
+        REAL_NAME=$(/usr/local/bin/apfsutil "$DISK_DEV" 2>/dev/null | awk -F': ' '/volname/{print $2; exit}' | tr -d '\r\n')
+        [ -n "$REAL_NAME" ] && TARGET_NAME="$REAL_NAME"
+    fi
     [ -z "$TARGET_NAME" ] && TARGET_NAME="MacDisk_$disk"
     
     MOUNT_POINT="/run/media/${TARGET_USER}/${TARGET_NAME}"
@@ -952,7 +962,7 @@ echo "✓ KDE Connect configurado para arrancar automáticamente en cada inicio 
 # 15. COMPORTAMIENTO MACBOOK AL CERRAR LA TAPA (INSTANT SLEEP / INSTANT WAKE)
 # ------------------------------------------------------------------------------
 echo "→ 15/16 Configurando suspensión y despertar instantáneo estilo MacBook..."
-mkdir -p /etc/systemd/logind.conf.d /etc/systemd/sleep.conf.d /usr/lib/systemd/system-sleep
+mkdir -p /etc/systemd/logind.conf.d /etc/systemd/sleep.conf.d /etc/systemd/system-sleep
 cat << 'EOF' > /etc/systemd/logind.conf.d/99-macbook-lid.conf
 [Login]
 HandleLidSwitch=suspend
@@ -970,7 +980,8 @@ SuspendMode=
 SuspendState=mem standby freeze
 EOF
 
-cat << 'EOF' > /usr/lib/systemd/system-sleep/galaxybook-wake-fix.sh
+mkdir -p /etc/systemd/system-sleep
+cat << 'EOF' > /etc/systemd/system-sleep/galaxybook-wake-fix.sh
 #!/bin/bash
 case "$1/$2" in
     pre/*)
@@ -983,7 +994,7 @@ case "$1/$2" in
         ;;
 esac
 EOF
-chmod +x /usr/lib/systemd/system-sleep/galaxybook-wake-fix.sh
+chmod +x /etc/systemd/system-sleep/galaxybook-wake-fix.sh
 
 # ------------------------------------------------------------------------------
 # 16. LECTOR DE HUELLAS DACTILARES (TOUCH ID PARA LOGIN Y SUDO)
@@ -1008,8 +1019,8 @@ echo "✅ ¡Huella registrada! Ahora puedes desbloquear y usar sudo con tu huell
 EOF
 chmod +x /usr/local/bin/galaxybook-enroll-fingerprint
 
-mkdir -p /usr/share/applications
-cat << 'EOF' > /usr/share/applications/galaxybook-enroll-fingerprint.desktop
+mkdir -p /usr/local/share/applications /home/rafa/.local/share/applications 2>/dev/null || true
+cat << 'EOF' > /usr/local/share/applications/galaxybook-enroll-fingerprint.desktop
 [Desktop Entry]
 Name=Registrar Huella (Touch ID)
 Comment=Configura el sensor de huella de tu Galaxy Book
@@ -1019,7 +1030,8 @@ Terminal=true
 Type=Application
 Categories=Settings;System;
 EOF
-chmod +x /usr/share/applications/galaxybook-enroll-fingerprint.desktop
+chmod +x /usr/local/share/applications/galaxybook-enroll-fingerprint.desktop 2>/dev/null || true
+cp -f /usr/local/share/applications/galaxybook-enroll-fingerprint.desktop /home/rafa/.local/share/applications/ 2>/dev/null || true
 
 # ACTIVACIÓN INMEDIATA DE SERVICIOS
 systemctl daemon-reload

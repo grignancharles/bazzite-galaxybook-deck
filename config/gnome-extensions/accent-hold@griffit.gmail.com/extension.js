@@ -33,18 +33,14 @@ export default class AccentHoldExtension extends Extension {
         this._pressHold = new PressHold(this._settings, () => this._table);
 
         this._indicator = null;
-        if (this._settings.get_boolean('show-indicator'))
-            this._addIndicator();
+        // Indicador de barra desactivado permanentemente
 
         const rebind = () => {
             this._unbind();
             this._bind();
         };
         const toggleIndicator = () => {
-            if (this._settings.get_boolean('show-indicator'))
-                this._addIndicator();
-            else
-                this._removeIndicator();
+            this._removeIndicator();
         };
         const reloadTable = () => {
             this._table = this._loadTable();

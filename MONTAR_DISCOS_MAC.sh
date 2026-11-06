@@ -60,7 +60,17 @@ USER_GID=$(id -g "$ACTUAL_USER" 2>/dev/null || echo "1000")
 
 echo -e "👤 Usuario destino detectado: ${C_GREEN}${ACTUAL_USER}${C_RESET} (UID: ${USER_UID}, GID: ${USER_GID})"
 
-# 1. Instalar binarios y wrappers si vienen en el paquete
+# 1. Habilitar user_allow_other en /etc/fuse.conf (Fix 'allow_other is not allowed')
+mkdir -p /etc
+if [ -f "/etc/fuse.conf" ]; then
+    sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
+    grep -q "^user_allow_other" /etc/fuse.conf || echo "user_allow_other" >> /etc/fuse.conf
+else
+    echo "user_allow_other" > /etc/fuse.conf
+fi
+chmod 644 /etc/fuse.conf
+
+# 2. Instalar binarios y wrappers si vienen en el paquete
 mkdir -p /usr/local/bin /usr/local/sbin /etc/udisks2
 
 if [ -f "${SCRIPT_DIR}/bin/apfs-fuse" ]; then
@@ -74,14 +84,8 @@ if [ -f "${SCRIPT_DIR}/bin/mount.apfs" ]; then
     chmod +x /usr/local/sbin/mount.apfs /usr/local/bin/mount.apfs
 fi
 
-# Configurar udisks2 mount options
-cat << 'EOF' > /etc/udisks2/mount_options.conf
-[defaults]
-apfs_defaults=allow_other
-apfs_allow=allow_other,uid,gid,ro,rw,nodev,nosuid
-hfsplus_defaults=ro,nodev,nosuid
-hfsplus_allow=ro,rw,nodev,nosuid,uid,gid,sync
-EOF
+# Limpiar cualquier opción conflictiva de udisks2
+rm -f /etc/udisks2/mount_options.conf 2>/dev/null || true
 
 if [ ! -x "/usr/local/bin/apfs-fuse" ] && ! command -v apfs-fuse >/dev/null 2>&1; then
     echo -e "${C_RED}❌ Error: apfs-fuse no encontrado en /usr/local/bin nem en PATH${C_RESET}"
@@ -124,6 +128,10 @@ while IFS= read -r line; do
     if [ "$IS_APFS" -eq 1 ] || [ "$IS_HFS" -eq 1 ]; then
         FOUND=$((FOUND + 1))
         TARGET_NAME="${label:-$dev_name}"
+        if [ "$IS_APFS" -eq 1 ]; then
+            REAL_APFS_NAME=$(/usr/local/bin/apfsutil "$DEV_PATH" 2>/dev/null | awk -F': ' '/volname/{print $2; exit}' | tr -d '\r\n')
+            [ -n "$REAL_APFS_NAME" ] && TARGET_NAME="$REAL_APFS_NAME"
+        fi
         [ -z "$TARGET_NAME" ] && TARGET_NAME="MacDisk_${dev_name}"
         
         MOUNT_POINT="/run/media/${ACTUAL_USER}/${TARGET_NAME}"
