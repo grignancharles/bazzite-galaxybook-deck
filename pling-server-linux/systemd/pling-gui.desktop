@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Pling Server (Panel de Control)
+Comment=Ajustes de resolución, FPS, 3D, Gamma, Saturación y Volumen para Quest
+Exec=/usr/local/bin/pling-gui
+Icon=input-gaming-symbolic
+Terminal=false
+Type=Application
+Categories=Settings;HardwareSettings;Game;

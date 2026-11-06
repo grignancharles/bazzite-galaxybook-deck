@@ -27,6 +27,12 @@ class PlingIndicator extends PanelMenu.Button {
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
+        let guiItem = new PopupMenu.PopupMenuItem('🎛️ Ajustes y Sliders (3D, Gamma, Audio)');
+        guiItem.connect('activate', () => {
+            GLib.spawn_command_line_async('/usr/local/bin/pling-gui');
+        });
+        this.menu.addMenuItem(guiItem);
+
         let restartItem = new PopupMenu.PopupMenuItem('🔄 Reiniciar Servidor Pling');
         restartItem.connect('activate', () => {
             GLib.spawn_command_line_async('systemctl restart pling-server.service');

@@ -509,7 +509,22 @@ from pling.cli import main
 if __name__ == "__main__":
     main()
 EOF
-    chmod +x /usr/local/bin/pling-server /usr/local/bin/pling-tray /usr/local/bin/pling-ctl 2>/dev/null || true
+    cat << 'EOF' > /usr/local/bin/pling-gui
+#!/usr/bin/env python3
+import sys
+sys.path.insert(0, "/usr/local/share/pling")
+from pling.gui import main
+if __name__ == "__main__":
+    main()
+EOF
+
+    chmod +x /usr/local/bin/pling-server /usr/local/bin/pling-tray /usr/local/bin/pling-ctl /usr/local/bin/pling-gui 2>/dev/null || true
+
+    mkdir -p /usr/local/share/applications "/home/${ACTUAL_USER}/.local/share/applications" 2>/dev/null || true
+    if [ -f "$PLING_DIR/systemd/pling-gui.desktop" ]; then
+        cp -f "$PLING_DIR/systemd/pling-gui.desktop" /usr/local/share/applications/ 2>/dev/null || true
+        cp -f "$PLING_DIR/systemd/pling-gui.desktop" "/home/${ACTUAL_USER}/.local/share/applications/" 2>/dev/null || true
+    fi
 
     # Demonio del sistema en segundo plano (arranque automático en boot)
     cat << 'EOF' > /etc/systemd/system/pling-server.service
@@ -636,6 +651,8 @@ if [ -n "$ACTUAL_USER" ] && [ "$ACTUAL_USER" != "root" ]; then
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.keybindings switch-applications "['<Super>Tab', '<Alt>Tab', '<Control>Tab']" 2>/dev/null || true
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.keybindings switch-applications-backward "['<Super><Shift>Tab', '<Alt><Shift>Tab', '<Control><Shift>Tab']" 2>/dev/null || true
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.keybindings close "['<Alt>F4', '<Control>q']" 2>/dev/null || true
+    # Semáforo macOS a la izquierda (Cerrar, Minimizar, Maximizar a la izquierda)
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.preferences button-layout 'close,minimize,maximize:' 2>/dev/null || true
 fi
 
 # 9.4 Experiencia de Acentos estilo macOS (Press-and-Hold para ñ, á, é, í, ó, ú, ü)
@@ -1009,7 +1026,7 @@ echo "✅ ¡Huella registrada! Ahora puedes desbloquear y usar sudo con tu huell
 EOF
 chmod +x /usr/local/bin/galaxybook-enroll-fingerprint
 
-mkdir -p /usr/local/share/applications /home/rafa/.local/share/applications 2>/dev/null || true
+mkdir -p /usr/local/share/applications "/home/${ACTUAL_USER}/.local/share/applications" 2>/dev/null || true
 cat << 'EOF' > /usr/local/share/applications/galaxybook-enroll-fingerprint.desktop
 [Desktop Entry]
 Name=Registrar Huella (Touch ID)
@@ -1021,7 +1038,8 @@ Type=Application
 Categories=Settings;System;
 EOF
 chmod +x /usr/local/share/applications/galaxybook-enroll-fingerprint.desktop 2>/dev/null || true
-cp -f /usr/local/share/applications/galaxybook-enroll-fingerprint.desktop /home/rafa/.local/share/applications/ 2>/dev/null || true
+cp -f /usr/local/share/applications/galaxybook-enroll-fingerprint.desktop "/home/${ACTUAL_USER}/.local/share/applications/" 2>/dev/null || true
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "/home/${ACTUAL_USER}/.local/share/applications" 2>/dev/null || true
 
 # ACTIVACIÓN INMEDIATA DE SERVICIOS
 systemctl daemon-reload
