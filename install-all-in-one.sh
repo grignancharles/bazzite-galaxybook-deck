@@ -501,7 +501,7 @@ udevadm control --reload-rules || true
 # ------------------------------------------------------------------------------
 # 12. BLINDAJE DE ARRANQUE EFI FALLBACK (SAMSUNG BIOS BUG FIX)
 # ------------------------------------------------------------------------------
-echo "→ 12/12 Asegurando arranque EFI fallback en SSD (Fix BIOS Samsung)..."
+echo "→ 12/13 Asegurando arranque EFI fallback en SSD (Fix BIOS Samsung)..."
 if [ -d "/boot/efi/EFI/fedora" ]; then
     mkdir -p /boot/efi/EFI/BOOT
     cp -f /boot/efi/EFI/fedora/shimx64.efi /boot/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null || \
@@ -510,6 +510,20 @@ if [ -d "/boot/efi/EFI/fedora" ]; then
     cp -f /boot/efi/EFI/fedora/grub.cfg /boot/efi/EFI/BOOT/grub.cfg 2>/dev/null || true
     echo "✓ Archivo fallback BOOTX64.EFI asegurado. La laptop siempre arrancará sin depender de NVRAM."
 fi
+
+# ------------------------------------------------------------------------------
+# 13. OCULTAR PARTICIONES DE WINDOWS Y EFI DE "FILES" (NAUTILUS)
+# ------------------------------------------------------------------------------
+echo "→ 13/13 Ocultando partición de Windows y EFI del explorador de archivos..."
+cat << 'EOF' > /etc/udev/rules.d/99-hide-windows-partitions.rules
+# Ocultar partición EFI y partición de Windows (NTFS) de la barra lateral de Files/Nautilus
+KERNEL=="nvme*p1", ENV{UDISKS_IGNORE}="1"
+KERNEL=="nvme*p2", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="ntfs", ENV{UDISKS_IGNORE}="1"
+SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="vfat", ENV{ID_FS_LABEL}=="*EFI*", ENV{UDISKS_IGNORE}="1"
+EOF
+udevadm control --reload-rules || true
+udevadm trigger || true
 
 # ACTIVACIÓN INMEDIATA DE SERVICIOS
 systemctl daemon-reload
