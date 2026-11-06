@@ -456,9 +456,45 @@ if command -v rpm-ostree >/dev/null 2>&1; then
 fi
 
 # ------------------------------------------------------------------------------
-# 11. BLINDAJE DE ARRANQUE EFI FALLBACK (SAMSUNG BIOS BUG FIX)
+# 11. SOPORTE DE DISCOS EXTERNOS DE MAC (APFS, HFS+, EXFAT)
 # ------------------------------------------------------------------------------
-echo "→ 11/11 Asegurando arranque EFI fallback en SSD (Fix BIOS Samsung)..."
+echo "→ 11/12 Agregando soporte para discos externos de macOS (APFS y HFS+)..."
+cat << 'EOF' > /etc/modules-load.d/apple-filesystems.conf
+hfs
+hfsplus
+apfs
+fuse
+EOF
+
+# Script automático de detección y montaje de volúmenes APFS de Mac
+cat << 'EOF' > /usr/local/bin/galaxybook-apfs-mount.sh
+#!/bin/bash
+# Montador automático para discos externos formateados en Mac APFS (como MessiEnto)
+set -u
+for disk in $(lsblk -l -o NAME,FSTYPE 2>/dev/null | grep -i "apfs" | awk '{print $1}'); do
+    MOUNT_POINT="/media/MacDisk_$disk"
+    if ! mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
+        mkdir -p "$MOUNT_POINT"
+        if command -v apfs-fuse >/dev/null 2>&1; then
+            apfs-fuse -o allow_other "/dev/$disk" "$MOUNT_POINT" 2>/dev/null || true
+        else
+            mount -t apfs -o ro "/dev/$disk" "$MOUNT_POINT" 2>/dev/null || true
+        fi
+    fi
+done
+EOF
+chmod +x /usr/local/bin/galaxybook-apfs-mount.sh
+
+# Regla udev para montar discos Mac APFS tan pronto se conectan por USB
+cat << 'EOF' > /etc/udev/rules.d/99-mac-apfs-automount.rules
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="apfs", RUN+="/usr/local/bin/galaxybook-apfs-mount.sh"
+EOF
+udevadm control --reload-rules || true
+
+# ------------------------------------------------------------------------------
+# 12. BLINDAJE DE ARRANQUE EFI FALLBACK (SAMSUNG BIOS BUG FIX)
+# ------------------------------------------------------------------------------
+echo "→ 12/12 Asegurando arranque EFI fallback en SSD (Fix BIOS Samsung)..."
 if [ -d "/boot/efi/EFI/fedora" ]; then
     mkdir -p /boot/efi/EFI/BOOT
     cp -f /boot/efi/EFI/fedora/shimx64.efi /boot/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null || \
