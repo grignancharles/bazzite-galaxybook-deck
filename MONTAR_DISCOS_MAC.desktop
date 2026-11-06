@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Montar Discos Mac (MessiEnto)
+Comment=Monta discos y particiones APFS de Apple en Archivos
+Exec=gnome-terminal -- sudo bash MONTAR_DISCOS_MAC.sh
+Icon=drive-harddisk
+Terminal=true
+Type=Application
+Categories=System;Utility;

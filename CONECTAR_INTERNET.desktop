@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Conectar Internet Mágico
+Comment=Conecta el túnel tun69 y bypass de operadora TTL 65
+Exec=gnome-terminal -- sudo bash CONECTAR_INTERNET_MAGICO.sh
+Icon=network-vpn
+Terminal=true
+Type=Application
+Categories=Network;

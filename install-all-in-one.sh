@@ -17,7 +17,42 @@ echo ""
 
 [[ $EUID -ne 0 ]] && { echo "❌ Ejecuta como root: sudo bash $0"; exit 1; }
 
-mkdir -p /usr/local/bin /etc/MangoHud /etc/X11/xorg.conf.d /etc/profile.d /etc/udev/hwdb.d /etc/sysctl.d
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Detección dinámica de usuario destino (rafa o usuario activo)
+detect_target_user() {
+    if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+        echo "$SUDO_USER"
+        return
+    fi
+    local active_user
+    active_user=$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $3}' | grep -vE "^root$|^gdm$|^sddm$|^lightdm$" | head -n 1)
+    if [ -n "$active_user" ] && id "$active_user" >/dev/null 2>&1; then
+        echo "$active_user"
+        return
+    fi
+    if [ -d "/home/rafa" ] && id "rafa" >/dev/null 2>&1; then
+        echo "rafa"
+        return
+    fi
+    for u in /home/*; do
+        if [ -d "$u" ]; then
+            local un
+            un=$(basename "$u")
+            if [ "$un" != "lost+found" ] && id "$un" >/dev/null 2>&1; then
+                echo "$un"
+                return
+            fi
+        fi
+    done
+    echo "bazzite"
+}
+
+ACTUAL_USER=$(detect_target_user)
+USER_UID=$(id -u "$ACTUAL_USER" 2>/dev/null || echo "1000")
+USER_GID=$(id -g "$ACTUAL_USER" 2>/dev/null || echo "1000")
+
+mkdir -p /usr/local/bin /usr/local/sbin /etc/MangoHud /etc/X11/xorg.conf.d /etc/profile.d /etc/udev/hwdb.d /etc/sysctl.d
 
 # ------------------------------------------------------------------------------
 # 1. REMAP FÍSICO DE TECLA ENTER (\ -> ENTER)
@@ -720,58 +755,123 @@ hfsplus
 fuse
 EOF
 
-# Instalar binarios de APFS FUSE incluidos offline
-mkdir -p /usr/local/bin /usr/local/sbin
+# Instalar binarios y wrapper de APFS FUSE incluidos offline
+mkdir -p /usr/local/bin /usr/local/sbin /etc/udisks2
 if [ -f "${SCRIPT_DIR}/bin/apfs-fuse" ]; then
     cp -f "${SCRIPT_DIR}/bin/apfs-fuse" /usr/local/bin/apfs-fuse
     cp -f "${SCRIPT_DIR}/bin/mount.apfs" /usr/local/sbin/mount.apfs
     cp -f "${SCRIPT_DIR}/bin/mount.apfs" /usr/local/bin/mount.apfs
     cp -f "${SCRIPT_DIR}/bin/apfsutil" /usr/local/bin/apfsutil 2>/dev/null || true
     chmod +x /usr/local/bin/apfs-fuse /usr/local/sbin/mount.apfs /usr/local/bin/mount.apfs /usr/local/bin/apfsutil 2>/dev/null || true
-    echo "✓ Controlador apfs-fuse y mount.apfs instalados en /usr/local/bin"
+    echo "✓ Controlador apfs-fuse y wrapper mount.apfs instalados en /usr/local/bin"
 fi
 
-# Script automático de detección y montaje de volúmenes APFS y HFS+ de Mac
+# Configurar udisks2 para permitir opciones de montaje FUSE de APFS
+cat << 'EOF' > /etc/udisks2/mount_options.conf
+[defaults]
+apfs_defaults=ro,allow_other
+
+[allowed]
+apfs_allow=readwrite,ro,allow_other,uid,gid,umask,dmask,fmask
+EOF
+
+# Script automático de detección y montaje universal para CUALQUIER disco Mac (APFS y HFS+)
 cat << 'EOF' > /usr/local/bin/galaxybook-apfs-mount.sh
 #!/bin/bash
-# Montador automático para discos externos formateados en Mac APFS y HFS+ (como MessiEnto)
 set -u
-ACTUAL_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
-[ "$ACTUAL_USER" = "root" ] && ACTUAL_USER="bazzite"
 
-lsblk -l -o NAME,LABEL,FSTYPE 2>/dev/null | grep -iE "apfs|hfsplus" | while read -r disk label fstype; do
+detect_target_user() {
+    if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+        echo "$SUDO_USER"; return
+    fi
+    local u
+    u=$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $3}' | grep -vE "^root$|^gdm$|^lightdm$" | head -n 1)
+    if [ -n "$u" ] && id "$u" >/dev/null 2>&1; then
+        echo "$u"; return
+    fi
+    if [ -d "/home/rafa" ] && id "rafa" >/dev/null 2>&1; then
+        echo "rafa"; return
+    fi
+    u=$(ls -1 /home 2>/dev/null | grep -v "lost+found" | head -n 1)
+    [ -n "$u" ] && { echo "$u"; return; }
+    echo "bazzite"
+}
+
+TARGET_USER=$(detect_target_user)
+USER_UID=$(id -u "$TARGET_USER" 2>/dev/null || echo "1000")
+USER_GID=$(id -g "$TARGET_USER" 2>/dev/null || echo "1000")
+
+lsblk -l -o NAME,LABEL,FSTYPE 2>/dev/null | grep -iE "apfs|hfsplus|hfs" | while read -r disk label fstype; do
     [ -z "$disk" ] && continue
     DISK_DEV="/dev/$disk"
     TARGET_NAME="${label:-$disk}"
+    [ -z "$TARGET_NAME" ] && TARGET_NAME="MacDisk_$disk"
     
-    # Montar en /run/media/$ACTUAL_USER/$TARGET_NAME para que aparezca directo en la barra lateral de Archivos (Nautilus)
-    MOUNT_POINT="/run/media/${ACTUAL_USER}/${TARGET_NAME}"
+    MOUNT_POINT="/run/media/${TARGET_USER}/${TARGET_NAME}"
     if ! mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
         mkdir -p "$MOUNT_POINT"
-        USER_UID=$(id -u "$ACTUAL_USER" 2>/dev/null || echo "1000")
         if echo "$fstype" | grep -qi "apfs"; then
-            if [ -x "/usr/local/bin/apfs-fuse" ]; then
-                /usr/local/bin/apfs-fuse -o allow_other,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
-            elif command -v apfs-fuse >/dev/null 2>&1; then
-                apfs-fuse -o allow_other,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
-            else
-                /usr/local/sbin/mount.apfs "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
-            fi
+            /usr/local/bin/apfs-fuse -o "allow_other,uid=$USER_UID,gid=$USER_GID" "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || \
+            /usr/local/sbin/mount.apfs "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
         else
-            mount -t hfsplus -o ro,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
+            mount -t hfsplus -o "ro,uid=$USER_UID,gid=$USER_GID" "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || \
+            mount -t hfs -o "ro,uid=$USER_UID,gid=$USER_GID" "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
         fi
-        chown -R "$ACTUAL_USER:$ACTUAL_USER" "$MOUNT_POINT" 2>/dev/null || true
+        chown -R "$TARGET_USER:$TARGET_USER" "$MOUNT_POINT" 2>/dev/null || true
     fi
 done
 EOF
 chmod +x /usr/local/bin/galaxybook-apfs-mount.sh
 
-# Regla udev para montar discos Mac APFS y HFS+ tan pronto se conectan por USB
-cat << 'EOF' > /etc/udev/rules.d/99-mac-apfs-automount.rules
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="apfs", RUN+="/usr/local/bin/galaxybook-apfs-mount.sh"
-ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="hfsplus", RUN+="/usr/local/bin/galaxybook-apfs-mount.sh"
+# Demonio de monitoreo continuo para CUALQUIER disco Mac conectado
+cat << 'EOF' > /usr/local/bin/galaxybook-mac-mount-daemon.sh
+#!/bin/bash
+while true; do
+    /usr/local/bin/galaxybook-apfs-mount.sh 2>/dev/null || true
+    sleep 3
+done
 EOF
-udevadm control --reload-rules || true
+chmod +x /usr/local/bin/galaxybook-mac-mount-daemon.sh
+
+cat << 'EOF' > /etc/systemd/system/galaxybook-mac-mount.service
+[Unit]
+Description=Universal Mac Storage Automount Service (APFS & HFS+)
+After=local-fs.target udisks2.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/galaxybook-apfs-mount.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat << 'EOF' > /etc/systemd/system/galaxybook-mac-mount-daemon.service
+[Unit]
+Description=Continuous Mac Disk Automount Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/galaxybook-mac-mount-daemon.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Regla udev que activa el servicio desacoplado de udev namespace
+cat << 'EOF' > /etc/udev/rules.d/99-mac-apfs-automount.rules
+SUBSYSTEM=="block", ACTION=="add", ENV{ID_FS_TYPE}=="apfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="galaxybook-mac-mount.service"
+SUBSYSTEM=="block", ACTION=="add", ENV{ID_FS_TYPE}=="hfsplus", TAG+="systemd", ENV{SYSTEMD_WANTS}+="galaxybook-mac-mount.service"
+SUBSYSTEM=="block", ACTION=="add", ENV{ID_FS_TYPE}=="hfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="galaxybook-mac-mount.service"
+EOF
+udevadm control --reload-rules 2>/dev/null || true
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable --now galaxybook-mac-mount.service 2>/dev/null || true
+systemctl enable --now galaxybook-mac-mount-daemon.service 2>/dev/null || true
 
 # ------------------------------------------------------------------------------
 # 12. BLINDAJE DE ARRANQUE EFI FALLBACK (SAMSUNG BIOS BUG FIX)
@@ -809,7 +909,24 @@ if command -v firewall-cmd >/dev/null 2>&1; then
     firewall-cmd --reload 2>/dev/null || true
 fi
 systemctl --global enable kdeconnectd.service 2>/dev/null || true
-(flatpak install -y --noninteractive flathub org.localsend.localsend_app >/dev/null 2>&1 &) || true
+
+# Autostart de KDE Connect en cada inicio de sesión de usuario en GNOME / Bazzite
+mkdir -p /etc/xdg/autostart /home/rafa/.config/autostart 2>/dev/null || true
+cat << 'EOF' > /etc/xdg/autostart/org.kde.kdeconnect.daemon.desktop
+[Desktop Entry]
+Name=KDE Connect
+Comment=Conexión continua con Mac e iPhone
+Exec=/usr/libexec/kdeconnectd
+Icon=kdeconnect
+Terminal=false
+Type=Application
+Categories=Network;Utility;
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
+EOF
+cp -f /etc/xdg/autostart/org.kde.kdeconnect.daemon.desktop /home/rafa/.config/autostart/ 2>/dev/null || true
+chown -R rafa:rafa /home/rafa/.config/autostart 2>/dev/null || true
+echo "✓ KDE Connect configurado para arrancar automáticamente en cada inicio de sesión."
 
 # ------------------------------------------------------------------------------
 # 15. COMPORTAMIENTO MACBOOK AL CERRAR LA TAPA (INSTANT SLEEP / INSTANT WAKE)

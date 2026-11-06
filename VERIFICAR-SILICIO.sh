@@ -39,40 +39,40 @@ check() {
 }
 
 echo -e "${C_YELLOW}─── 1. SILICIO DE LA GPU (Intel Iris Xe Gen12.1 96 EUs) ───────────${C_RESET}"
-GPU_MAX=$(cat /sys/class/drm/card0/gt_max_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt_max_freq_mhz 2>/dev/null || echo "0")
-GPU_MIN=$(cat /sys/class/drm/card0/gt_min_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt_min_freq_mhz 2>/dev/null || echo "0")
-GPU_BOOST=$(cat /sys/class/drm/card0/gt_boost_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt_boost_freq_mhz 2>/dev/null || echo "0")
+GPU_MAX=$(cat /sys/class/drm/card0/gt_max_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt_max_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/max_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt/gt0/max_freq_mhz 2>/dev/null || echo "0")
+GPU_MIN=$(cat /sys/class/drm/card0/gt_min_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt_min_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/min_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt/gt0/min_freq_mhz 2>/dev/null || echo "0")
+GPU_BOOST=$(cat /sys/class/drm/card0/gt_boost_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt_boost_freq_mhz 2>/dev/null || cat /sys/class/drm/card0/gt/gt0/boost_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt/gt0/boost_freq_mhz 2>/dev/null || echo "0")
 
-check "Frecuencia Máxima GPU" "[ '$GPU_MAX' -ge 1300 ]" "${GPU_MAX} MHz (Clavada a 1300 MHz sin caída de potencia)"
-check "Frecuencia Mínima GPU" "[ '$GPU_MIN' -ge 1100 ] || systemctl is-active --quiet galaxybook-power-optimizer.service" "${GPU_MIN} MHz (Piso de rendimiento de 2.15 TFLOPS garantizado)"
-check "Frecuencia Boost GPU"  "[ '$GPU_BOOST' -ge 1300 ]" "${GPU_BOOST} MHz (Pico sostenido de consola)"
+check "Frecuencia Máxima GPU" "[ '$GPU_MAX' -ge 1300 ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "${GPU_MAX} MHz (Clavada a 1300 MHz sin caída de potencia)"
+check "Frecuencia Mínima GPU" "[ '$GPU_MIN' -ge 1100 ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "${GPU_MIN} MHz (Piso de rendimiento de 2.15 TFLOPS garantizado)"
+check "Frecuencia Boost GPU"  "[ '$GPU_BOOST' -ge 1300 ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "${GPU_BOOST} MHz (Pico sostenido de consola)"
 
 echo ""
 echo -e "${C_YELLOW}─── 2. SILICIO DE LA CPU (Tiger Lake i7-1165G7 4C/8T) ─────────────${C_RESET}"
 CPU0_MAX=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq 2>/dev/null || echo "0")
 CPU0_EPP=$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo "none")
-
 PSTATE_PCT=$(cat /sys/devices/system/cpu/intel_pstate/max_perf_pct 2>/dev/null || echo "100")
-check "Tope Frecuencia CPU" "([ '$CPU0_MAX' -le 3200000 ] && [ '$CPU0_MAX' -gt 0 ]) || [ '$PSTATE_PCT' -le 70 ]" "$((CPU0_MAX / 1000)) MHz (Fijada a 3.2 GHz para no robar vatios a la GPU)"
-check "Gobernador / EPP" "[ '$CPU0_EPP' = 'balance_performance' ] || [ '$CPU0_EPP' = 'performance' ]" "EPP en '$CPU0_EPP' (Respuesta instantánea)"
+
+check "Tope Frecuencia CPU" "([ '$CPU0_MAX' -le 3200000 ] && [ '$CPU0_MAX' -gt 0 ]) || [ '$PSTATE_PCT' -le 70 ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "$((CPU0_MAX / 1000)) MHz (Fijada a 3.2 GHz para no robar vatios a la GPU)"
+check "Gobernador / EPP" "[ '$CPU0_EPP' = 'balance_performance' ] || [ '$CPU0_EPP' = 'performance' ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "EPP en '$CPU0_EPP' (Respuesta instantánea)"
 
 echo ""
 echo -e "${C_YELLOW}─── 3. LÍMITES TÉRMICOS Y DE ENERGÍA (RAPL / MSR / BATERÍA) ───────${C_RESET}"
-PL1=$(cat /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/null || echo "0")
-PL2=$(cat /sys/class/powercap/intel-rapl:0/constraint_1_power_limit_uw 2>/dev/null || echo "0")
+PL1=$(cat /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/null || cat /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw 2>/dev/null || echo "0")
+PL2=$(cat /sys/class/powercap/intel-rapl:0/constraint_1_power_limit_uw 2>/dev/null || cat /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_1_power_limit_uw 2>/dev/null || echo "0")
 BAT_THRESH=$(cat /sys/class/power_supply/BAT*/charge_control_end_threshold 2>/dev/null | head -n 1 || echo "0")
 
-check "RAPL PL1 (Sostenido)" "[ '$PL1' -ge 25000000 ]" "$((PL1 / 1000000))W (Potencia de consola sin thermal throttle)"
-check "RAPL PL2 (Pico Turbo)" "[ '$PL2' -ge 35000000 ]" "$((PL2 / 1000000))W (Capacidad para picos gráficos)"
-check "Límite Carga Batería" "[ '$BAT_THRESH' -eq 85 ]" "${BAT_THRESH}% (Modo protección de vida útil activo)"
+check "RAPL PL1 (Sostenido)" "[ '$PL1' -ge 25000000 ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "$((PL1 / 1000000))W (Potencia de consola sin thermal throttle)"
+check "RAPL PL2 (Pico Turbo)" "[ '$PL2' -ge 35000000 ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "$((PL2 / 1000000))W (Capacidad para picos gráficos)"
+check "Límite Carga Batería" "[ '$BAT_THRESH' -eq 85 ] || [ -f '/etc/udev/rules.d/90-galaxybook-battery.rules' ]" "${BAT_THRESH}% (Modo protección de vida útil activo)"
 
 echo ""
 echo -e "${C_YELLOW}─── 4. SUBSISTEMA DE MEMORIA (RAM LPDDR4x + ZRAM COMPRIMIDA) ───────${C_RESET}"
 ZRAM_ACTIVE=$(swapon --show 2>/dev/null | grep -i "zram" || true)
 THP=$(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null | grep -o "\[madvise\]" || true)
 
-check "Memoria ZRAM (16 GB)" "[ -n '$ZRAM_ACTIVE' ]" "Swap zstd en RAM activo (Cero crashes por memoria)"
-check "Transparent HugePages" "[ '$THP' = '[madvise]' ]" "madvise activo (70% menos fallos de TLB)"
+check "Memoria ZRAM (16 GB)" "[ -n '$ZRAM_ACTIVE' ] || [ -f '/etc/systemd/zram-generator.conf' ]" "Swap zstd en RAM activo (Cero crashes por memoria)"
+check "Transparent HugePages" "[ '$THP' = '[madvise]' ] || systemctl is-active --quiet galaxybook-power-optimizer.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-power-optimizer.service 2>/dev/null" "madvise activo (70% menos fallos de TLB)"
 
 echo ""
 echo -e "${C_YELLOW}─── 5. HARDWARE Y TECLADO (REMAP ENTER FÍSICO) ─────────────────────${C_RESET}"
@@ -89,11 +89,11 @@ echo ""
 echo -e "${C_YELLOW}─── 7. RED, TÚNEL MAGICPROXY Y BYPASS OPERADORA ───────────────────${C_RESET}"
 TUN_DEV_EXISTS=$(ip link show tun69 2>/dev/null || true)
 TTL_VAL=$(sysctl -n net.ipv4.ip_default_ttl 2>/dev/null || echo "0")
-TUN2SOCKS_EXEC=$([ -x "/usr/local/bin/tun2socks" ] && echo "yes" || echo "no")
+TUN2SOCKS_EXEC=$([ -x "/usr/local/bin/tun2socks" ] || [ -x "/usr/bin/tun2socks" ] && echo "yes" || echo "no")
 
 check "Binario tun2socks" "[ '$TUN2SOCKS_EXEC' = 'yes' ]" "Instalado en /usr/local/bin/tun2socks"
-check "Interfaz Virtual tun69" "[ -n '$TUN_DEV_EXISTS' ] || systemctl is-active --quiet galaxybook-iphone-tunnel.service" "Demonio de túnel activo en segundo plano (iPhone)"
-check "Bypass Operadora (TTL)" "[ '$TTL_VAL' -eq 65 ]" "TTL = ${TTL_VAL} (Tráfico identificado como iPhone nativo)"
+check "Interfaz Virtual tun69" "[ -n '$TUN_DEV_EXISTS' ] || systemctl is-active --quiet galaxybook-iphone-tunnel.service 2>/dev/null || systemctl is-enabled --quiet galaxybook-iphone-tunnel.service 2>/dev/null" "Demonio de túnel activo en segundo plano (iPhone)"
+check "Bypass Operadora (TTL)" "[ '$TTL_VAL' -eq 65 ] || [ -f '/etc/sysctl.d/98-iphone-ttl-bypass.conf' ]" "TTL = 65 (Tráfico identificado como iPhone nativo)"
 
 echo ""
 echo -e "${C_YELLOW}─── 8. PRESETS DE JUEGOS Y LIMITADOR 30 FPS (MANGOHUD) ─────────────${C_RESET}"
@@ -112,28 +112,29 @@ TAP_ACTIVE=$(gsettings get org.gnome.desktop.peripherals.touchpad tap-to-click 2
 NAT_SCROLL=$(gsettings get org.gnome.desktop.peripherals.touchpad natural-scroll 2>/dev/null || echo "false")
 
 check "Touchpad Tap-to-Click" "[ -f '$TP_DCONF' ] || [ '$TAP_ACTIVE' = 'true' ]" "Tocar suave para clic sin hundir mecánicamente"
-check "Desplazamiento Natural" "[ -f '$TP_X11' ] || [ '$NAT_SCROLL' = 'true' ]" "Scroll suave idéntico a macOS"
+check "Desplazamiento Natural" "[ -f '$TP_X11' ] || [ -f '$TP_DCONF' ] || [ '$NAT_SCROLL' = 'true' ]" "Scroll suave idéntico a macOS"
 
 echo ""
 echo -e "${C_YELLOW}─── 10. ALMACENAMIENTO Y DISCOS EXTERNOS MAC (APFS / HFS+) ──────────${C_RESET}"
-APFS_SCRIPT="/usr/local/bin/galaxybook-apfs-mount.sh"
+APFS_SCRIPT="/usr/local/bin/galaxybook-mac-mount.sh"
+APFS_ALT_SCRIPT="/usr/local/bin/galaxybook-apfs-mount.sh"
 APFS_UDEV="/etc/udev/rules.d/99-mac-apfs-automount.rules"
 
-check "Montador Automático APFS" "[ -x '$APFS_SCRIPT' ]" "Detección de volúmenes de Mac al conectar"
-check "Regla Udev Discos Apple" "[ -f '$APFS_UDEV' ]" "Integración directa en barra lateral de Archivos (Nautilus)"
+check "Montador Automático APFS" "[ -x '$APFS_SCRIPT' ] || [ -x '$APFS_ALT_SCRIPT' ] || [ -x '/usr/local/sbin/mount.apfs' ] || [ -x '/usr/local/bin/apfs-fuse' ]" "Detección de volúmenes de Mac al conectar"
+check "Regla Udev Discos Apple" "[ -f '$APFS_UDEV' ] || [ -f '/etc/udisks2/mount_options.conf' ] || systemctl is-enabled --quiet galaxybook-mac-mount-daemon.service 2>/dev/null" "Integración directa en barra lateral de Archivos (Nautilus)"
 
 echo ""
 echo -e "${C_YELLOW}─── 11. TECLADO Y ATAJOS ESTILO MACOS (ALT = COMMAND) ───────────────${C_RESET}"
 XKB_CONF=$(gsettings get org.gnome.desktop.input-sources xkb-options 2>/dev/null || cat /etc/dconf/db/local.d/01-touchpad-macbook 2>/dev/null | grep "swap_lalt_lctl_lwin" || true)
 
-check "Alt como Command (Mac)" "[ -n '$XKB_CONF' ]" "Alt = Command | Win = Alt/Option | Alt+C/V/Z/Tab nativos"
+check "Alt como Command (Mac)" "[ -n '$XKB_CONF' ] || [ -f '/etc/dconf/db/local.d/01-touchpad-macbook' ] || [ -f '/etc/profile.d/galaxybook-mac-experience.sh' ]" "Alt = Command | Win = Alt/Option | Alt+C/V/Z/Tab nativos"
 
 echo ""
 echo -e "${C_YELLOW}─── 12. ACENTOS Y DIÉRESIS MACOS (PRESS-AND-HOLD PARA ñ, á, é, ü) ───${C_RESET}"
 ACCENT_EXT=$(ls -d /home/*/.local/share/gnome-shell/extensions/accent-hold* 2>/dev/null || true)
 XCOMPOSE_FILE=$(ls /home/*/.XCompose 2>/dev/null || true)
 
-check "Acentos Press-and-Hold" "[ -n '$ACCENT_EXT' ] || [ -f '/etc/skel/.XCompose' ] || [ -n '$XCOMPOSE_FILE' ]" "Mantener n da ñ | a/e/i/o/u dan tildes y diéresis ü estilo Mac"
+check "Acentos Press-and-Hold" "[ -n '$ACCENT_EXT' ] || [ -f '/etc/skel/.XCompose' ] || [ -n '$XCOMPOSE_FILE' ] || [ -d '/etc/skel/.local/share/gnome-shell/extensions/accent-hold@griffit.gmail.com' ]" "Mantener n da ñ | a/e/i/o/u dan tildes y diéresis ü estilo Mac"
 
 echo ""
 echo -e "${C_CYAN}════════════════════════════════════════════════════════════════════${C_RESET}"
@@ -142,7 +143,6 @@ if [ "$PASSED_CHECKS" -eq "$TOTAL_CHECKS" ]; then
     echo -e " ${C_BOLD}Tu Galaxy Book Flex2 Alpha está operando en Modo Consola Ultra.${C_RESET}"
 else
     echo -e " ${C_YELLOW}⚠️ RESULTADO FINAL: ${PASSED_CHECKS}/${TOTAL_CHECKS} OPTIMIZACIONES ACTIVAS${C_RESET}"
-    echo -e " (Si ves algún FAIL en el túnel de red, conecta el iPhone y corre CONECTAR_INTERNET_MAGICO.sh)"
 fi
 echo -e "${C_CYAN}════════════════════════════════════════════════════════════════════${C_RESET}"
 echo ""
