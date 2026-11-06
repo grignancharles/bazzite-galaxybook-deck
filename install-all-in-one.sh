@@ -349,9 +349,26 @@ WantedBy=multi-user.target
 EOF
 
 # ------------------------------------------------------------------------------
-# 8. TÚNEL PERMANENTE DE IPHONE (TUN2SOCKS)
+# 8. TÚNEL PERMANENTE DE IPHONE (MAGICPROXY & TUN2SOCKS)
 # ------------------------------------------------------------------------------
-echo "→ 8/11 Configurando servicio automático de Hotspot de iPhone..."
+echo "→ 8/16 Configurando MagicProxy y servicio automático de Hotspot de iPhone..."
+
+# Instalar binario nativo tun2socks si viene en la carpeta del script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/tun2socks" ]; then
+    cp -f "$SCRIPT_DIR/tun2socks" /usr/local/bin/tun2socks
+    chmod +x /usr/local/bin/tun2socks
+elif [ -f "$SCRIPT_DIR/bin/tun2socks" ]; then
+    cp -f "$SCRIPT_DIR/bin/tun2socks" /usr/local/bin/tun2socks
+    chmod +x /usr/local/bin/tun2socks
+fi
+
+# Instalar helper de MagicProxy si viene en la carpeta
+if [ -f "$SCRIPT_DIR/magicproxy/bin/magicproxy-net" ]; then
+    cp -f "$SCRIPT_DIR/magicproxy/bin/magicproxy-net" /usr/local/bin/magicproxy-net
+    chmod +x /usr/local/bin/magicproxy-net
+fi
+
 cat << 'EOF' > /usr/local/bin/galaxybook-iphone-tunnel.sh
 #!/bin/bash
 set -u
@@ -363,19 +380,44 @@ start_tunnel() {
     if ip link show "$TUN_DEV" >/dev/null 2>&1 && pgrep -f "tun2socks.*$TUN_DEV" >/dev/null 2>&1; then
         return 0
     fi
-    [ ! -x "/usr/bin/tun2socks" ] && return 0
+
+    TUN2SOCKS_BIN=""
+    if [ -x "/usr/local/bin/tun2socks" ]; then
+        TUN2SOCKS_BIN="/usr/local/bin/tun2socks"
+    elif [ -x "/usr/bin/tun2socks" ]; then
+        TUN2SOCKS_BIN="/usr/bin/tun2socks"
+    elif command -v tun2socks >/dev/null 2>&1; then
+        TUN2SOCKS_BIN=$(command -v tun2socks)
+    else
+        return 0
+    fi
+
+    # Si magicproxy-net está disponible, usar el motor completo
+    if [ -x "/usr/local/bin/magicproxy-net" ]; then
+        /usr/local/bin/magicproxy-net up "$IPHONE_IP" "$IPHONE_PORT"
+        sysctl -w net.ipv4.ip_default_ttl=65 2>/dev/null || true
+        return 0
+    fi
+
     DEFAULT_GW=$(ip route show default 2>/dev/null | awk '{print $3}' | head -n 1)
     [ -z "$DEFAULT_GW" ] && DEFAULT_GW="$IPHONE_IP"
 
     ip tuntap add dev "$TUN_DEV" mode tun 2>/dev/null || true
-    ip addr add 10.0.0.2/24 dev "$TUN_DEV" 2>/dev/null || true
-    ip link set dev "$TUN_DEV" up
+    ip addr replace 10.0.0.2/24 dev "$TUN_DEV" 2>/dev/null || ip addr add 10.0.0.2/24 dev "$TUN_DEV" 2>/dev/null || true
+    ip link set dev "$TUN_DEV" mtu 1400 up
     pkill -f "tun2socks.*$TUN_DEV" 2>/dev/null || true
-    /usr/bin/tun2socks -device "$TUN_DEV" -proxy "socks5://${IPHONE_IP}:${IPHONE_PORT}" -loglevel warning >/dev/null 2>&1 &
-    sleep 1
-    ip route add "${IPHONE_IP}/32" via "$DEFAULT_GW" 2>/dev/null || true
-    ip route add 0.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || true
-    ip route add 128.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || true
+    "$TUN2SOCKS_BIN" -device "$TUN_DEV" -proxy "socks5://${IPHONE_IP}:${IPHONE_PORT}" -loglevel error >/dev/null 2>&1 &
+    sleep 0.6
+    ip route replace "${IPHONE_IP}/32" via "$DEFAULT_GW" 2>/dev/null || ip route add "${IPHONE_IP}/32" via "$DEFAULT_GW" 2>/dev/null || true
+    ip route replace 0.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || ip route add 0.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || true
+    ip route replace 128.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || ip route add 128.0.0.0/1 dev "$TUN_DEV" 2>/dev/null || true
+    sysctl -w net.ipv4.ip_default_ttl=65 2>/dev/null || true
+
+    if command -v resolvectl >/dev/null 2>&1; then
+        resolvectl dns "$TUN_DEV" 1.1.1.1 8.8.8.8 2>/dev/null || true
+        resolvectl domain "$TUN_DEV" '~.' 2>/dev/null || true
+        resolvectl default-route "$TUN_DEV" true 2>/dev/null || true
+    fi
 }
 
 while true; do start_tunnel; sleep 5; done
