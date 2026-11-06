@@ -295,9 +295,13 @@ export VKD3D_FRAME_RATE=30
 export PROTON_FORCE_LARGE_ADDRESS_AWARE=1
 export PROTON_ENABLE_NVAPI=0
 
-# Aceleración por hardware Intel DP4a para XeSS
+# Aceleración por hardware Intel DP4a para XeSS y FSR Global (Steam Deck Pro)
 export INTEL_XESS_DP4A=1
 export XESS_FORCE_DP4A=1
+export WINE_FULLSCREEN_FSR=1
+export WINE_FULLSCREEN_FSR_STRENGTH=2
+export PROTON_FSR=1
+export PROTON_USE_WINED3D=0
 export SDL_VIDEODRIVER=wayland,x11
 export GAMESCOPE_OUTPUT_WIDTH=1920
 export GAMESCOPE_OUTPUT_HEIGHT=1080
@@ -427,8 +431,11 @@ vm.vfs_cache_pressure = 50
 vm.dirty_ratio = 15
 vm.dirty_background_ratio = 5
 vm.compaction_proactiveness = 0
+vm.page-cluster = 0
 kernel.sched_rt_runtime_us = 980000
 fs.file-max = 2097152
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
 EOF
 sysctl --system >/dev/null 2>&1 || true
 
