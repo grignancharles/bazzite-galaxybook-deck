@@ -73,6 +73,37 @@ export default class PlingExtension extends Extension {
     enable() {
         this._indicator = new PlingIndicator();
         Main.panel.addToStatusArea(this.uuid, this._indicator, 1, 'right');
+        this._hidePowerModeElements();
+    }
+
+    _hidePowerModeElements() {
+        try {
+            let qs = Main.panel.statusArea.quickSettings;
+            if (qs) {
+                // Ocultar selector de perfiles de energia si GNOME Shell lo tuviera instanciado
+                if (qs._powerProfilesToggle) {
+                    qs._powerProfilesToggle.hide();
+                    qs._powerProfilesToggle.visible = false;
+                }
+                if (qs._system && qs._system._powerProfilesToggle) {
+                    qs._system._powerProfilesToggle.hide();
+                    qs._system._powerProfilesToggle.visible = false;
+                }
+                if (qs.menu && qs.menu._grid) {
+                    let children = qs.menu._grid.get_children();
+                    for (let c of children) {
+                        let name = c.constructor ? c.constructor.name : '';
+                        let title = c._toggle ? c._toggle.title : '';
+                        if (name.includes('PowerProfile') || title === 'Power Mode' || title === 'Modo de energía') {
+                            c.hide();
+                            c.visible = false;
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            // Ignorar si el componente no existe
+        }
     }
 
     disable() {

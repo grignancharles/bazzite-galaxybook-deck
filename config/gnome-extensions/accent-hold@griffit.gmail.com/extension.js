@@ -74,16 +74,8 @@ export default class AccentHoldExtension extends Extension {
     }
 
     _addIndicator() {
-        if (this._indicator)
-            return;
-        const iconPath = this.path + '/icons/accent-hold-symbolic.svg';
-        this._indicator = addIndicator(
-            this.uuid,
-            this._settings,
-            iconPath,
-            () => this.openPreferences(),
-            _,
-        );
+        // Deshabilitado permanentemente: no mostrar icono en el menu bar
+        return;
     }
 
     _removeIndicator() {
