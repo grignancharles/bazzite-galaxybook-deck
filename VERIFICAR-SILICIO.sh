@@ -104,6 +104,24 @@ check "MangoHud 30 FPS Plano" "[ -f '$MANGO_CONF' ]" "Ritmo de 33.33ms plano est
 check "VRAM y Mesh Shaders" "[ -f '$DXVK_CONF' ] && [ -f '$VKD3D_CONF' ]" "VRAM 4.5GB + Compute Shaders fallback activos"
 
 echo ""
+echo -e "${C_YELLOW}─── 9. EXPERIENCIA TOUCHPAD ESTILO MACBOOK ─────────────────────────${C_RESET}"
+TP_DCONF="/etc/dconf/db/local.d/01-touchpad-macbook"
+TP_X11="/etc/X11/xorg.conf.d/30-touchpad.conf"
+TAP_ACTIVE=$(gsettings get org.gnome.desktop.peripherals.touchpad tap-to-click 2>/dev/null || echo "false")
+NAT_SCROLL=$(gsettings get org.gnome.desktop.peripherals.touchpad natural-scroll 2>/dev/null || echo "false")
+
+check "Touchpad Tap-to-Click" "[ -f '$TP_DCONF' ] || [ '$TAP_ACTIVE' = 'true' ]" "Tocar suave para clic sin hundir mecánicamente"
+check "Desplazamiento Natural" "[ -f '$TP_X11' ] || [ '$NAT_SCROLL' = 'true' ]" "Scroll suave idéntico a macOS"
+
+echo ""
+echo -e "${C_YELLOW}─── 10. ALMACENAMIENTO Y DISCOS EXTERNOS MAC (APFS / HFS+) ──────────${C_RESET}"
+APFS_SCRIPT="/usr/local/bin/galaxybook-apfs-mount.sh"
+APFS_UDEV="/etc/udev/rules.d/99-mac-apfs-automount.rules"
+
+check "Montador Automático APFS" "[ -x '$APFS_SCRIPT' ]" "Detección de volúmenes de Mac al conectar"
+check "Regla Udev Discos Apple" "[ -f '$APFS_UDEV' ]" "Integración directa en barra lateral de Archivos (Nautilus)"
+
+echo ""
 echo -e "${C_CYAN}════════════════════════════════════════════════════════════════════${C_RESET}"
 if [ "$PASSED_CHECKS" -eq "$TOTAL_CHECKS" ]; then
     echo -e " ${C_GREEN}✅ RESULTADO FINAL: ${PASSED_CHECKS}/${TOTAL_CHECKS} OPTIMIZACIONES ACTIVAS AL 100%${C_RESET}"

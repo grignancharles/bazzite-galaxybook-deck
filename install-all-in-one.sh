@@ -30,10 +30,12 @@ evdev:atkbd:dmi:*
 
 # USB/HID/I2C keyboards & Touchscreen virtual keyboard
 evdev:input:b0003v*p*
+ KEYBOARD_KEY_2b=enter
  KEYBOARD_KEY_70031=enter
 
 evdev:input:b0018v*p*
  KEYBOARD_KEY_2b=enter
+ KEYBOARD_KEY_70031=enter
  KEYBOARD_KEY_70028=enter
  KEYBOARD_KEY_70058=enter
 EOF
@@ -441,9 +443,11 @@ WantedBy=multi-user.target
 EOF
 
 # ------------------------------------------------------------------------------
-# 9. TOUCHPAD ESTILO MACBOOK (TAP-TO-CLICK, NATURAL SCROLL)
+# 9. TOUCHPAD ESTILO MACBOOK (TAP-TO-CLICK, NATURAL SCROLL, VELOCIDAD ÁGIL)
 # ------------------------------------------------------------------------------
-echo "→ 9/11 Configurando Touchpad estilo MacBook..."
+echo "→ 9/16 Configurando Touchpad idéntico a MacBook (GNOME Wayland + X11)..."
+
+# 9.1 Configuración X11 / Xwayland fallback
 cat << 'EOF' > /etc/X11/xorg.conf.d/30-touchpad.conf
 Section "InputClass"
     Identifier "touchpad"
@@ -458,8 +462,57 @@ Section "InputClass"
     Option "ClickMethod" "clickfinger"
     Option "DisableWhileTyping" "true"
     Option "AccelProfile" "adaptive"
-    Option "AccelSpeed" "0.15"
+    Option "AccelSpeed" "0.25"
 EndSection
+EOF
+
+# 9.2 Configuración GNOME Wayland (dconf del sistema para todos los usuarios y login)
+mkdir -p /etc/dconf/db/local.d /etc/dconf/profile
+cat << 'EOF' > /etc/dconf/profile/user
+user-db:user
+system-db:local
+EOF
+
+cat << 'EOF' > /etc/dconf/db/local.d/01-touchpad-macbook
+[org/gnome/desktop/peripherals/touchpad]
+tap-to-click=true
+natural-scroll=true
+speed=0.25
+click-method='fingers'
+tap-and-drag=true
+two-finger-scrolling-enabled=true
+disable-while-typing=true
+accel-profile='adaptive'
+
+[org/gnome/desktop/peripherals/mouse]
+natural-scroll=false
+speed=0.20
+EOF
+dconf update 2>/dev/null || true
+
+# 9.3 Aplicar a la sesión de usuario activa en GNOME
+ACTUAL_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+if [ -n "$ACTUAL_USER" ] && [ "$ACTUAL_USER" != "root" ]; then
+    USER_UID=$(id -u "$ACTUAL_USER" 2>/dev/null || echo "1000")
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad speed 0.25 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad click-method 'fingers' 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad tap-and-drag true 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true 2>/dev/null || true
+fi
+
+# Script en /etc/profile.d para asegurar que cualquier inicio de sesión mantenga el touchpad tipo Mac
+cat << 'EOF' > /etc/profile.d/galaxybook-touchpad-macbook.sh
+#!/bin/sh
+if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.peripherals.touchpad tap-to-click true 2>/dev/null || true
+    gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true 2>/dev/null || true
+    gsettings set org.gnome.desktop.peripherals.touchpad speed 0.25 2>/dev/null || true
+    gsettings set org.gnome.desktop.peripherals.touchpad click-method 'fingers' 2>/dev/null || true
+    gsettings set org.gnome.desktop.peripherals.touchpad tap-and-drag true 2>/dev/null || true
+    gsettings set org.gnome.desktop.peripherals.touchpad two-finger-scrolling-enabled true 2>/dev/null || true
+fi
 EOF
 
 # ------------------------------------------------------------------------------
@@ -515,28 +568,43 @@ apfs
 fuse
 EOF
 
-# Script automático de detección y montaje de volúmenes APFS de Mac
+# Script automático de detección y montaje de volúmenes APFS y HFS+ de Mac
 cat << 'EOF' > /usr/local/bin/galaxybook-apfs-mount.sh
 #!/bin/bash
-# Montador automático para discos externos formateados en Mac APFS (como MessiEnto)
+# Montador automático para discos externos formateados en Mac APFS y HFS+ (como MessiEnto)
 set -u
-for disk in $(lsblk -l -o NAME,FSTYPE 2>/dev/null | grep -i "apfs" | awk '{print $1}'); do
-    MOUNT_POINT="/media/MacDisk_$disk"
+ACTUAL_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+[ "$ACTUAL_USER" = "root" ] && ACTUAL_USER="bazzite"
+
+lsblk -l -o NAME,LABEL,FSTYPE 2>/dev/null | grep -iE "apfs|hfsplus" | while read -r disk label fstype; do
+    [ -z "$disk" ] && continue
+    DISK_DEV="/dev/$disk"
+    TARGET_NAME="${label:-$disk}"
+    
+    # Montar en /run/media/$ACTUAL_USER/$TARGET_NAME para que aparezca directo en la barra lateral de Archivos (Nautilus)
+    MOUNT_POINT="/run/media/${ACTUAL_USER}/${TARGET_NAME}"
     if ! mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
         mkdir -p "$MOUNT_POINT"
-        if command -v apfs-fuse >/dev/null 2>&1; then
-            apfs-fuse -o allow_other "/dev/$disk" "$MOUNT_POINT" 2>/dev/null || true
+        USER_UID=$(id -u "$ACTUAL_USER" 2>/dev/null || echo "1000")
+        if echo "$fstype" | grep -qi "apfs"; then
+            if command -v apfs-fuse >/dev/null 2>&1; then
+                apfs-fuse -o allow_other,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
+            else
+                mount -t apfs -o ro,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
+            fi
         else
-            mount -t apfs -o ro "/dev/$disk" "$MOUNT_POINT" 2>/dev/null || true
+            mount -t hfsplus -o ro,uid=$USER_UID "$DISK_DEV" "$MOUNT_POINT" 2>/dev/null || true
         fi
+        chown -R "$ACTUAL_USER:$ACTUAL_USER" "$MOUNT_POINT" 2>/dev/null || true
     fi
 done
 EOF
 chmod +x /usr/local/bin/galaxybook-apfs-mount.sh
 
-# Regla udev para montar discos Mac APFS tan pronto se conectan por USB
+# Regla udev para montar discos Mac APFS y HFS+ tan pronto se conectan por USB
 cat << 'EOF' > /etc/udev/rules.d/99-mac-apfs-automount.rules
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="apfs", RUN+="/usr/local/bin/galaxybook-apfs-mount.sh"
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="hfsplus", RUN+="/usr/local/bin/galaxybook-apfs-mount.sh"
 EOF
 udevadm control --reload-rules || true
 
