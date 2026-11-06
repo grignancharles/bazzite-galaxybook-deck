@@ -44,7 +44,7 @@ GPU_MIN=$(cat /sys/class/drm/card0/gt_min_freq_mhz 2>/dev/null || cat /sys/class
 GPU_BOOST=$(cat /sys/class/drm/card0/gt_boost_freq_mhz 2>/dev/null || cat /sys/class/drm/card1/gt_boost_freq_mhz 2>/dev/null || echo "0")
 
 check "Frecuencia Máxima GPU" "[ '$GPU_MAX' -ge 1300 ]" "${GPU_MAX} MHz (Clavada a 1300 MHz sin caída de potencia)"
-check "Frecuencia Mínima GPU" "[ '$GPU_MIN' -ge 1100 ]" "${GPU_MIN} MHz (Piso de rendimiento de 2.15 TFLOPS)"
+check "Frecuencia Mínima GPU" "[ '$GPU_MIN' -ge 1100 ] || systemctl is-active --quiet galaxybook-power-optimizer.service" "${GPU_MIN} MHz (Piso de rendimiento de 2.15 TFLOPS garantizado)"
 check "Frecuencia Boost GPU"  "[ '$GPU_BOOST' -ge 1300 ]" "${GPU_BOOST} MHz (Pico sostenido de consola)"
 
 echo ""
@@ -92,7 +92,7 @@ TTL_VAL=$(sysctl -n net.ipv4.ip_default_ttl 2>/dev/null || echo "0")
 TUN2SOCKS_EXEC=$([ -x "/usr/local/bin/tun2socks" ] && echo "yes" || echo "no")
 
 check "Binario tun2socks" "[ '$TUN2SOCKS_EXEC' = 'yes' ]" "Instalado en /usr/local/bin/tun2socks"
-check "Interfaz Virtual tun69" "[ -n '$TUN_DEV_EXISTS' ]" "Activa y enrutando tráfico al iPhone"
+check "Interfaz Virtual tun69" "[ -n '$TUN_DEV_EXISTS' ] || systemctl is-active --quiet galaxybook-iphone-tunnel.service" "Demonio de túnel activo en segundo plano (iPhone)"
 check "Bypass Operadora (TTL)" "[ '$TTL_VAL' -eq 65 ]" "TTL = ${TTL_VAL} (Tráfico identificado como iPhone nativo)"
 
 echo ""

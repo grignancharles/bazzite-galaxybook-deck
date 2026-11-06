@@ -382,6 +382,10 @@ if [ -f "$SCRIPT_DIR/magicproxy/bin/magicproxy-net" ]; then
     chmod +x /usr/local/bin/magicproxy-net
 fi
 
+# Bypass TTL 65 inmediato y permanente en el kernel
+echo "net.ipv4.ip_default_ttl = 65" > /etc/sysctl.d/98-iphone-ttl-bypass.conf
+sysctl -w net.ipv4.ip_default_ttl=65 2>/dev/null || true
+
 cat << 'EOF' > /usr/local/bin/galaxybook-iphone-tunnel.sh
 #!/bin/bash
 set -u
