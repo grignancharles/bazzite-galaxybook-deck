@@ -76,6 +76,10 @@ apply_cpu_profile() {
         [ -w "$cpu/cpufreq/scaling_max_freq" ] && echo 3200000 > "$cpu/cpufreq/scaling_max_freq" 2>/dev/null || true
         [ -w "$cpu/cpufreq/energy_performance_preference" ] && echo "balance_performance" > "$cpu/cpufreq/energy_performance_preference" 2>/dev/null || true
     done
+    # Forzar el Ring Bus / Uncore (Caché L3 -> GPU) al máximo para eliminar cuellos de botella de RAM
+    for uncore in /sys/devices/system/cpu/intel_uncore_frequency/*; do
+        [ -w "$uncore/min_freq_khz" ] && cat "$uncore/initial_max_freq_khz" > "$uncore/min_freq_khz" 2>/dev/null || true
+    done
 }
 
 apply_rapl_limits
@@ -123,6 +127,10 @@ boost_game_start() {
     log "🚀 Juego detectado. Congelando tareas de fondo y optimizando RAM..."
     for p in "${BACKGROUND_PROCESSES[@]}"; do pkill -STOP -f "$p" 2>/dev/null || true; done
     for s in "${BACKGROUND_SERVICES[@]}"; do systemctl stop "$s.service" 2>/dev/null || true; done
+    # C-States poco profundos: impedir que los núcleos caigan en C8/C10 (Cero micro-cortes)
+    for state in /sys/devices/system/cpu/cpu*/cpuidle/state[3-9]/disable; do
+        [ -w "$state" ] && echo 1 > "$state" 2>/dev/null || true
+    done
     sync && echo 1 > /proc/sys/vm/drop_caches 2>/dev/null || true
     echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
     for pid in $(pgrep -f "pressure-vessel|wine64-preloader|steamapps/common"); do
@@ -133,6 +141,9 @@ boost_game_start() {
 
 boost_game_stop() {
     log "🏁 Juego cerrado. Reanudando procesos y servicios de fondo..."
+    for state in /sys/devices/system/cpu/cpu*/cpuidle/state[3-9]/disable; do
+        [ -w "$state" ] && echo 0 > "$state" 2>/dev/null || true
+    done
     for p in "${BACKGROUND_PROCESSES[@]}"; do pkill -CONT -f "$p" 2>/dev/null || true; done
     for s in "${BACKGROUND_SERVICES[@]}"; do systemctl start "$s.service" 2>/dev/null || true; done
 }
@@ -177,24 +188,29 @@ EOF
 
 cat << 'EOF' > /etc/dxvk.conf
 # Configuración Global de DXVK (DirectX 9/10/11) para Intel Iris Xe 96EUs
-# Reporta 4GB / 6GB de VRAM real para evitar el error de "128MB de VRAM" del BIOS
+# Reporta 6GB de VRAM real y 4GB shared para evitar el error de "128MB de VRAM" del BIOS
 dxgi.customVendorId = 8086
 dxgi.customDeviceId = 9a49
-dxgi.customDeviceMemory = 4096
-dxgi.maxDeviceMemory = 4096
+dxgi.customDeviceMemory = 6144
+dxgi.maxDeviceMemory = 6144
+dxgi.maxSharedMemory = 4096
 dxgi.showVramUsage = false
 dxvk.enableAsync = true
 dxvk.numCompilerThreads = 4
 d3d11.maxTessFactor = 8
 d3d11.relaxedBarriers = True
+d3d11.constantBufferRangeCheck = False
 d3d11.maxFeatureLevel = 11_1
 EOF
 
 cat << 'EOF' > /etc/profile.d/intel-xe-gaming.sh
-# Variables de entorno globales para Intel Iris Xe 96EUs
+# Variables de entorno globales para Intel Iris Xe 96EUs (Tiger Lake Gen12)
 export MESA_SHADER_CACHE_MAX_SIZE=20G
 export ANV_GPL=true
 export ANV_ENABLE_BUFFER_COMP=1
+export ANV_ENABLE_PIPELINE_CACHE=1
+export INTEL_DEBUG=""
+export MESA_VK_WSI_PRESENT_MODE=mailbox
 export mesa_glthread=true
 export DXVK_ASYNC=1
 export DXVK_CONFIG_FILE=/etc/dxvk.conf
@@ -202,18 +218,14 @@ export VKD3D_CONFIG_FILE=/etc/vkd3d.conf
 export VKD3D_CONFIG=no_upload_hvv,force_static_cbv
 export VKD3D_FEATURE_LEVEL=12_1
 export VKD3D_DISABLE_EXTENSIONS="VK_EXT_mesh_shader"
-export VKD3D_VRAM_SIZE_MB=4096
+export VKD3D_VRAM_SIZE_MB=6144
 export PROTON_FORCE_LARGE_ADDRESS_AWARE=1
 export PROTON_ENABLE_NVAPI=0
 
 # Configuración Universal de Renderizado 720p -> 1080p con Intel XeSS (DP4a)
 export INTEL_XESS_DP4A=1
 export XESS_FORCE_DP4A=1
-export WINE_FULLSCREEN_FSR=1
-export WINE_FULLSCREEN_FSR_STRENGTH=2
-export WINE_FULLSCREEN_FSR_MODE=ultra
 export SDL_VIDEODRIVER=wayland,x11
-
 export GAMESCOPE_OUTPUT_WIDTH=1920
 export GAMESCOPE_OUTPUT_HEIGHT=1080
 export GAMESCOPE_OUTPUT_REFRESH=60
@@ -326,8 +338,8 @@ Section "InputClass"
 EndSection
 EOF
 
-# 7. OPTIMIZACIONES SYSCTL DE KERNEL PARA GAMING
-echo "→ 7/8 Aplicando parámetros de kernel (vm.max_map_count, ZRAM, protección batería)..."
+# 7. OPTIMIZACIONES SYSCTL DE KERNEL PARA GAMING Y MEMORIA
+echo "→ 7/8 Aplicando parámetros de kernel (vm.max_map_count, ZRAM, HugePages, mitigations=off)..."
 cat << 'EOF' > /etc/sysctl.d/99-galaxybook-gaming.conf
 vm.max_map_count = 2147483642
 vm.swappiness = 10
@@ -339,6 +351,20 @@ kernel.sched_rt_runtime_us = 980000
 fs.file-max = 2097152
 EOF
 sysctl --system >/dev/null 2>&1 || true
+
+# Transparent HugePages (Páginas gigantes de 2MB para eliminar fallos TLB)
+echo "madvise" > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || true
+echo "defer+madvise" > /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || true
+echo 0 > /sys/kernel/mm/transparent_hugepage/khugepaged/defrag 2>/dev/null || true
+
+# Parámetros de Kernel de bajo nivel: GuC/HuC hardware scheduling, FBC, mitigations=off
+if command -v rpm-ostree >/dev/null 2>&1; then
+    rpm-ostree kargs --append-if-missing="mitigations=off" \
+                     --append-if-missing="i915.enable_guc=3" \
+                     --append-if-missing="i915.enable_fbc=1" \
+                     --append-if-missing="intel_iommu=off" \
+                     --append-if-missing="split_lock_detect=off" 2>/dev/null || true
+fi
 
 cat << 'EOF' > /etc/systemd/zram-generator.conf
 [zram0]
@@ -353,6 +379,10 @@ cat << 'EOF' > /etc/udev/rules.d/90-galaxybook-battery.rules
 ACTION=="add", SUBSYSTEM=="power_supply", ATTR{type}=="Battery", ATTR{charge_control_end_threshold}="85"
 EOF
 udevadm control --reload-rules || true
+
+# 8. DECKY LOADER (SOPORTE OPTISCALER / FRAME GENERATION)
+echo "→ 8/11 Configurando Decky Loader para OptiScaler y FrameGen..."
+curl -L https://github.com/SteamDeckHomebrew/decky-installer/releases/latest/download/install_release.sh | sh 2>/dev/null || true
 
 # 9. BLINDAJE DE ARRANQUE EFI PARA SAMSUNG GALAXY BOOK (FIX BIOS SAMSUNG)
 echo "→ 9/9 Asegurando arranque EFI fallback en SSD (Fix BIOS Samsung)..."
