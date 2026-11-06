@@ -164,6 +164,11 @@ EOF
 systemctl daemon-reload 2>/dev/null || true
 systemctl enable --now galaxybook-power-optimizer.service 2>/dev/null || true
 
+# Enmascarar power-profiles-daemon para eliminar el selector 'Power Mode' de GNOME Quick Settings y evitar que intente cambiar el EPP
+systemctl stop power-profiles-daemon.service 2>/dev/null || true
+systemctl mask power-profiles-daemon.service 2>/dev/null || true
+echo "✓ Selector 'Power Mode' de GNOME deshabilitado. Solo mandan las optimizaciones del silicio."
+
 # ------------------------------------------------------------------------------
 # 3. GAME BOOSTER: PRIORIDAD REAL-TIME, C-STATES CLAMP Y CONGELAMIENTO DE TAREAS
 # ------------------------------------------------------------------------------
@@ -663,8 +668,23 @@ if [ -d "$EXT_SRC" ]; then
     fi
     chown -R "$ACTUAL_USER:$ACTUAL_USER" "/home/${ACTUAL_USER}/.local" 2>/dev/null || true
     
-    # Habilitar extensión en GNOME Shell
+    # Habilitar extensión en GNOME Shell pero OCULTANDO el icono de la barra superior
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gnome-extensions enable accent-hold@griffit.gmail.com 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.shell.extensions.accent-hold show-indicator false 2>/dev/null || true
+fi
+
+# 9.5 Extensión Nativa para Pling Meta Quest Streamer en la barra superior (Top Bar)
+PLING_EXT_SRC="${SCRIPT_DIR}/config/gnome-extensions/pling-indicator@galaxybook"
+PLING_EXT_DEST="/home/${ACTUAL_USER}/.local/share/gnome-shell/extensions/pling-indicator@galaxybook"
+
+if [ -d "$PLING_EXT_SRC" ]; then
+    echo "  → Instalando extensión nativa de Pling en la barra superior..."
+    mkdir -p "$PLING_EXT_DEST" "/etc/skel/.local/share/gnome-shell/extensions/pling-indicator@galaxybook"
+    cp -r "$PLING_EXT_SRC"/* "$PLING_EXT_DEST/" 2>/dev/null || true
+    cp -r "$PLING_EXT_SRC"/* "/etc/skel/.local/share/gnome-shell/extensions/pling-indicator@galaxybook/" 2>/dev/null || true
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "/home/${ACTUAL_USER}/.local" 2>/dev/null || true
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gnome-extensions enable pling-indicator@galaxybook 2>/dev/null || true
+    echo "✓ Icono nativo de Pling añadido a la barra superior."
 fi
 
 # Configuración Compose y diéresis (~/.XCompose)
