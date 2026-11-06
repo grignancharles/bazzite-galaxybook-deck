@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 MagicProxy - ProxyConfigurator
-1:1 direct port of macOS ProxyConfigurator.swift for Linux (Tiger Lake / Bazzite / SteamOS).
-Handles Layer-3 TUN interface (tun69), tun2socks lifecycle, and IPv6 leak prevention.
+1:1 direct port of macOS ProxyConfigurator.swift for Linux.
+Handles Layer-3 TUN interface (tun69), tun2socks lifecycle, and GNOME/Firefox SOCKS5 integration.
 """
 
 import os
@@ -36,7 +36,7 @@ class ProxyConfigurator:
         return "tun2socks"
 
     def get_default_gateway(self):
-        """Finds current default gateway and network interface."""
+        """Finds current physical default gateway and network interface."""
         try:
             out = subprocess.check_output(["ip", "route", "show", "default"], text=True, stderr=subprocess.DEVNULL)
             for line in out.splitlines():
@@ -44,29 +44,51 @@ class ProxyConfigurator:
                 if len(parts) >= 3 and parts[0] == "default" and parts[1] == "via":
                     gw = parts[2]
                     dev = parts[4] if len(parts) >= 5 and parts[3] == "dev" else None
-                    return gw, dev
+                    if dev != self.tun_device:
+                        return gw, dev
         except Exception as e:
             logger.warning(f"Error detectando puerta de enlace predeterminada: {e}")
         return None, None
 
+    def _set_gnome_proxy(self, ip: str, port: int):
+        """Configura el proxy del sistema en GNOME para que Firefox/Chrome usen SOCKS5 remoto sin fallos de DNS."""
+        try:
+            for uid in os.listdir("/run/user"):
+                if uid.isdigit() and int(uid) >= 1000:
+                    bus_addr = f"unix:path=/run/user/{uid}/bus"
+                    env = {**os.environ, "DBUS_SESSION_BUS_ADDRESS": bus_addr}
+                    subprocess.run(["gsettings", "set", "org.gnome.system.proxy", "mode", "manual"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(["gsettings", "set", "org.gnome.system.proxy.socks", "host", ip], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(["gsettings", "set", "org.gnome.system.proxy.socks", "port", str(port)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    logger.info(f"Proxy de sistema GNOME activado para usuario UID {uid}: socks5://{ip}:{port}")
+        except Exception as e:
+            logger.warning(f"No se pudo configurar proxy GNOME: {e}")
+
+    def _clear_gnome_proxy(self):
+        """Restaura el proxy de sistema GNOME a directo (mode 'none')."""
+        try:
+            for uid in os.listdir("/run/user"):
+                if uid.isdigit() and int(uid) >= 1000:
+                    bus_addr = f"unix:path=/run/user/{uid}/bus"
+                    env = {**os.environ, "DBUS_SESSION_BUS_ADDRESS": bus_addr}
+                    subprocess.run(["gsettings", "set", "org.gnome.system.proxy", "mode", "none"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    logger.info(f"Proxy de sistema GNOME desactivado para usuario UID {uid}")
+        except Exception as e:
+            pass
+
     def enable_socks_proxy(self, ip: str, port: int) -> bool:
         """
         Equivalent to ProxyConfigurator.swift enableSocksProxy(ip: String, port: Int):
-        - killall tun2socks
-        - Detect default gateway
-        - route add ip via default gateway
-        - Launch tun2socks -device tun69 -proxy socks5://ip:port -loglevel error
-        - ifconfig tun69 10.0.0.2 mtu 1400 up
-        - route add 0.0.0.0/1 -interface tun69
-        - route add 128.0.0.0/1 -interface tun69
-        - IPv6 capture to avoid WebRTC leaks (xCloud):
-          ifconfig tun69 inet6 fd00::2/64 up
-          route add -inet6 ::/1 -interface tun69
-          route add -inet6 8000::/1 -interface tun69
-        - Apply TTL 65 bypass
+        1. killall tun2socks
+        2. Direct physical route to iPhone IP via default physical gateway
+        3. Start tun2socks -device tun69 -proxy socks5://ip:port -loglevel error
+        4. Configure tun69 10.0.0.2 mtu 1400 up
+        5. route add 0.0.0.0/1 & 128.0.0.0/1 via tun69
+        6. IPv6 WebRTC capture (fd00::2/64, ::/1, 8000::/1)
+        7. TTL 65 bypass
+        8. GNOME System SOCKS5 proxy (fixes Firefox & browser DNS)
         """
         if self.is_active and self.active_ip == ip and self.active_port == port:
-            # Check if process is still alive
             if self.tun2socks_proc and self.tun2socks_proc.poll() is None:
                 return True
 
@@ -117,15 +139,13 @@ class ProxyConfigurator:
             # 6. TTL 65 bypass de operadora
             subprocess.run(["sysctl", "-w", "net.ipv4.ip_default_ttl=65"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-            # 7. DNS resolvectl
-            subprocess.run(["resolvectl", "dns", self.tun_device, "1.1.1.1", "8.8.8.8"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["resolvectl", "domain", self.tun_device, "~."], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            subprocess.run(["resolvectl", "default-route", self.tun_device, "true"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # 7. Activar proxy GNOME en el sistema para Firefox y navegadores
+            self._set_gnome_proxy(ip, port)
 
             self.is_active = True
             self.active_ip = ip
             self.active_port = port
-            logger.info(f"[Proxy] VPN Profunda (Capa 3) Activa en {ip}:{port}")
+            logger.info(f"[Proxy] VPN Profunda y Proxy de Sistema Activo en {ip}:{port}")
             return True
         except Exception as e:
             logger.error(f"Fallo activando proxy: {e}")
@@ -136,16 +156,15 @@ class ProxyConfigurator:
         """
         Equivalent to ProxyConfigurator.swift disableSocksProxy():
         - killall tun2socks
-        - route delete 0.0.0.0/1
-        - route delete 128.0.0.0/1
-        - route delete -inet6 ::/1
-        - route delete -inet6 8000::/1
-        - route delete ip
+        - delete routes
+        - restore GNOME proxy to none
         """
         if not self.is_active and not self.tun2socks_proc:
             return
 
-        logger.info("Desactivando VPN profunda...")
+        logger.info("Desactivando VPN profunda y restaurando conexión directa...")
+        self._clear_gnome_proxy()
+
         if self.tun2socks_proc:
             try:
                 self.tun2socks_proc.terminate()
