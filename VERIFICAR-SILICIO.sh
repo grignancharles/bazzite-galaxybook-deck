@@ -128,6 +128,13 @@ XKB_CONF=$(gsettings get org.gnome.desktop.input-sources xkb-options 2>/dev/null
 check "Alt como Command (Mac)" "[ -n '$XKB_CONF' ]" "Alt = Command | Win = Alt/Option | Alt+C/V/Z/Tab nativos"
 
 echo ""
+echo -e "${C_YELLOW}─── 12. ACENTOS Y DIÉRESIS MACOS (PRESS-AND-HOLD PARA ñ, á, é, ü) ───${C_RESET}"
+ACCENT_EXT=$(ls -d /home/*/.local/share/gnome-shell/extensions/accent-hold* 2>/dev/null || true)
+XCOMPOSE_FILE=$(ls /home/*/.XCompose 2>/dev/null || true)
+
+check "Acentos Press-and-Hold" "[ -n '$ACCENT_EXT' ] || [ -f '/etc/skel/.XCompose' ] || [ -n '$XCOMPOSE_FILE' ]" "Mantener n da ñ | a/e/i/o/u dan tildes y diéresis ü estilo Mac"
+
+echo ""
 echo -e "${C_CYAN}════════════════════════════════════════════════════════════════════${C_RESET}"
 if [ "$PASSED_CHECKS" -eq "$TOTAL_CHECKS" ]; then
     echo -e " ${C_GREEN}✅ RESULTADO FINAL: ${PASSED_CHECKS}/${TOTAL_CHECKS} OPTIMIZACIONES ACTIVAS AL 100%${C_RESET}"

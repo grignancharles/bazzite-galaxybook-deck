@@ -1,0 +1,17 @@
+{
+  "uuid": "accent-hold@griffit.gmail.com",
+  "name": "Accent Hold",
+  "description": "Hold a letter (e, a, c, o, n…) and pick its accented variant (é è ê ë, ç, ñ, ô…) from a popup, with its number, the arrows or the mouse; a quick tap types the letter as usual. Works on any keyboard layout, without a daemon or root, in applications that use the GNOME input method (Wayland: GTK, VTE terminals, Electron with its Wayland backend). A shortcut (Super+E by default) opens the same picker without holding.\n\nPreferences: press-and-hold on/off and duration, shortcut, character table, keyboard layouts.",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.accent-hold",
+  "gettext-domain": "accent-hold",
+  "url": "https://github.com/d101c/accent-hold",
+  "version-name": "2.3"
+}

@@ -516,6 +516,42 @@ if [ -n "$ACTUAL_USER" ] && [ "$ACTUAL_USER" != "root" ]; then
     sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gsettings set org.gnome.desktop.wm.keybindings close "['<Alt>F4', '<Control>q']" 2>/dev/null || true
 fi
 
+# 9.4 Experiencia de Acentos estilo macOS (Press-and-Hold para ñ, á, é, í, ó, ú, ü)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXT_SRC="${SCRIPT_DIR}/config/gnome-extensions/accent-hold@griffit.gmail.com"
+EXT_DEST="/home/${ACTUAL_USER}/.local/share/gnome-shell/extensions/accent-hold@griffit.gmail.com"
+
+if [ -d "$EXT_SRC" ]; then
+    echo "  → Instalando extensión Accent Hold (Mantener presionado para acentos tipo Mac)..."
+    mkdir -p "$EXT_DEST" "/etc/skel/.local/share/gnome-shell/extensions/accent-hold@griffit.gmail.com"
+    cp -r "$EXT_SRC"/* "$EXT_DEST/" 2>/dev/null || true
+    cp -r "$EXT_SRC"/* "/etc/skel/.local/share/gnome-shell/extensions/accent-hold@griffit.gmail.com/" 2>/dev/null || true
+    
+    if command -v glib-compile-schemas >/dev/null 2>&1; then
+        glib-compile-schemas "$EXT_DEST/schemas" 2>/dev/null || true
+        glib-compile-schemas "/etc/skel/.local/share/gnome-shell/extensions/accent-hold@griffit.gmail.com/schemas" 2>/dev/null || true
+    fi
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "/home/${ACTUAL_USER}/.local" 2>/dev/null || true
+    
+    # Habilitar extensión en GNOME Shell
+    sudo -u "$ACTUAL_USER" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${USER_UID}/bus" gnome-extensions enable accent-hold@griffit.gmail.com 2>/dev/null || true
+fi
+
+# Configuración Compose y diéresis (~/.XCompose)
+cat << 'EOF' > "/home/${ACTUAL_USER}/.XCompose"
+include "%L"
+
+# Acentos y diéresis directos estilo Mac
+<dead_diaeresis> <u> : "ü"
+<dead_diaeresis> <U> : "Ü"
+<Multi_key> <u> : "ü"
+<Multi_key> <U> : "Ü"
+<Multi_key> <n> : "ñ"
+<Multi_key> <N> : "Ñ"
+EOF
+chown "$ACTUAL_USER:$ACTUAL_USER" "/home/${ACTUAL_USER}/.XCompose" 2>/dev/null || true
+cp -f "/home/${ACTUAL_USER}/.XCompose" /etc/skel/.XCompose 2>/dev/null || true
+
 # Script en /etc/profile.d para asegurar que cualquier inicio de sesión mantenga el touchpad y teclado tipo Mac
 cat << 'EOF' > /etc/profile.d/galaxybook-mac-experience.sh
 #!/bin/sh

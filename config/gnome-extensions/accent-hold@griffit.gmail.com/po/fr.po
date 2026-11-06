@@ -1,0 +1,221 @@
+# French translation for Accent Hold.
+# Copyright (C) 2026 Accent Hold contributors
+# This file is distributed under the same license as the accent-hold package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: accent-hold\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-21 19:53+0200\n"
+"PO-Revision-Date: 2026-06-21 00:00+0000\n"
+"Last-Translator: Julien Griffit <julien.griffit@gmail.com>\n"
+"Language-Team: French <fr@li.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: accentPicker.js:103
+msgid "Type a letter…"
+msgstr "Tapez une lettre…"
+
+#: prefs.js:15
+msgid "French (fr)"
+msgstr "Français (fr)"
+
+#: prefs.js:16
+msgid "French (oss variant)"
+msgstr "Français (variante oss)"
+
+#: prefs.js:17
+msgid "English US (us)"
+msgstr "Anglais US (us)"
+
+#: prefs.js:18
+msgid "English US International"
+msgstr "Anglais US international"
+
+#: prefs.js:19
+msgid "English GB (gb)"
+msgstr "Anglais GB (gb)"
+
+#: prefs.js:20
+msgid "German (de)"
+msgstr "Allemand (de)"
+
+#: prefs.js:21
+msgid "Spanish (es)"
+msgstr "Espagnol (es)"
+
+#: prefs.js:22
+msgid "Italian (it)"
+msgstr "Italien (it)"
+
+#: prefs.js:23
+msgid "Portuguese (pt)"
+msgstr "Portugais (pt)"
+
+#: prefs.js:24
+msgid "Belgian (be)"
+msgstr "Belge (be)"
+
+#: prefs.js:25
+msgid "Swiss (ch)"
+msgstr "Suisse (ch)"
+
+#: prefs.js:26
+msgid "Canadian (ca)"
+msgstr "Canadien (ca)"
+
+#: prefs.js:35 panelIndicator.js:23
+msgid "Accent Hold"
+msgstr "Accent Hold"
+
+#: prefs.js:49
+msgid "Shortcut"
+msgstr "Raccourci"
+
+#: prefs.js:50
+msgid "Key that triggers the accent picker."
+msgstr "Touche déclenchant le sélecteur d’accents."
+
+#: prefs.js:56 panelIndicator.js:37
+msgid "Enabled"
+msgstr "Activé"
+
+#: prefs.js:57
+msgid "Enable or disable the shortcut."
+msgstr "Active ou inhibe le raccourci."
+
+#: prefs.js:65
+msgid "Combination"
+msgstr "Combinaison"
+
+#: prefs.js:66
+msgid "Click the button, then press the combination."
+msgstr "Cliquez sur le bouton puis appuyez sur la combinaison."
+
+#: prefs.js:76
+msgid "Disabled"
+msgstr "Désactivé"
+
+#: prefs.js:98
+msgid "Press a key…"
+msgstr "Appuyez sur une touche…"
+
+#: prefs.js:139
+msgid "Accelerator (text)"
+msgstr "Accélérateur (texte)"
+
+#: prefs.js:195
+msgid "Behavior"
+msgstr "Comportement"
+
+#: prefs.js:200
+msgid "Delay before display"
+msgstr "Latence avant affichage"
+
+#: prefs.js:201
+msgid "Milliseconds before the shortcut picker appears (press and hold is not delayed)."
+msgstr "Millisecondes avant l’apparition du sélecteur du raccourci (l’appui long n’est pas retardé)."
+
+#: prefs.js:214
+msgid "Auto-close (failsafe)"
+msgstr "Auto-fermeture (failsafe)"
+
+#: prefs.js:215
+msgid "Milliseconds before automatic close."
+msgstr "Millisecondes avant fermeture automatique."
+
+#: prefs.js:231
+msgid "Accentable characters"
+msgstr "Caractères accentuables"
+
+#: prefs.js:232
+msgid "JSON table: base letter → list of accented variants."
+msgstr "Table JSON : lettre de base → liste des variantes accentuées."
+
+#: prefs.js:268
+msgid "Modified = saved automatically."
+msgstr "Modifié = enregistré automatiquement."
+
+#: prefs.js:272
+msgid "Save"
+msgstr "Enregistrer"
+
+#: prefs.js:276
+msgid "Reset"
+msgstr "Réinitialiser"
+
+#: prefs.js:293
+msgid "Built-in default table active."
+msgstr "Table intégrée par défaut active."
+
+#: prefs.js:299
+msgid "Not saved: expected {\"e\": [\"é\", \"è\"], …} — an object of string lists."
+msgstr "Non enregistré : attendu {\"e\": [\"é\", \"è\"], …} — un objet de listes de chaînes."
+
+#: prefs.js:303
+msgid "Saved."
+msgstr "Enregistré."
+
+#: prefs.js:323
+msgid "Reset to the built-in table."
+msgstr "Réinitialisé à la table intégrée."
+
+#: prefs.js:348
+msgid "Keyboards"
+msgstr "Claviers"
+
+#: prefs.js:349
+msgid "Layouts where press and hold and the shortcut are active (none checked = all active)."
+msgstr "Dispositions où l’appui long et le raccourci sont actifs (aucune cochée = toutes actives)."
+
+#: prefs.js:377
+msgid "No xkb layout detected"
+msgstr "Aucun layout xkb détecté"
+
+#: prefs.js:378
+msgid "Accent Hold is active on all keyboards."
+msgstr "Accent Hold est actif sur tous les claviers."
+
+#: panelIndicator.js:48
+msgid "Preferences"
+msgstr "Préférences"
+
+msgid "Press and hold"
+msgstr "Appui long"
+
+msgid "Hold a letter to choose its accent: press its number, or move with the arrows and press Enter, or click. Space, or Enter alone, keeps the plain letter."
+msgstr "Maintenez une lettre pour choisir son accent : tapez son numéro, ou déplacez-vous avec les flèches puis Entrée, ou cliquez. Espace, ou Entrée seule, garde la lettre simple."
+
+msgid "Works in applications that support the GNOME input method."
+msgstr "Fonctionne dans les applications compatibles avec la méthode de saisie de GNOME."
+
+msgid "Hold duration"
+msgstr "Durée d’appui"
+
+msgid "Milliseconds a letter must be held."
+msgstr "Millisecondes pendant lesquelles maintenir la lettre."
+
+msgid "Use a modifier (Ctrl, Alt, Super…) or a function key."
+msgstr "Utilisez un modificateur (Ctrl, Alt, Super…) ou une touche de fonction."
+
+msgid "More from the Hold family"
+msgstr "Aussi dans la famille Hold"
+
+msgid "Same gesture, same look. Each one installs its engine from its own settings, without a terminal."
+msgstr "Même geste, même apparence. Chacune installe son moteur depuis ses propres réglages, sans terminal."
+
+msgid "Voice Hold"
+msgstr "Voice Hold"
+
+msgid "Hold a key and dictate, offline."
+msgstr "Maintenez une touche et dictez, hors-ligne."
+
+msgid "Command Hold"
+msgstr "Command Hold"
+
+msgid "Hold a key and say what to do."
+msgstr "Maintenez une touche et dites quoi faire."

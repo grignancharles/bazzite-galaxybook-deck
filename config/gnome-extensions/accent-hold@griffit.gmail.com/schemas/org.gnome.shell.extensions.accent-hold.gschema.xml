@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.accent-hold"
+          path="/org/gnome/shell/extensions/accent-hold/">
+    <key name="accent-hold-shortcut" type="as">
+      <default>['&lt;Super&gt;e']</default>
+      <summary>Picker shortcut</summary>
+      <description>The key combination that opens the accent picker. Namespaced because Mutter keybinding names are global to the session.</description>
+    </key>
+    <key name="trigger" type="as">
+      <default>['&lt;Super&gt;e']</default>
+      <summary>Picker shortcut (before 2.2)</summary>
+      <description>Deprecated: copied to accent-hold-shortcut on first start of 2.2, then reset. Kept so that reading it cannot abort the shell.</description>
+    </key>
+    <key name="enabled" type="b">
+      <default>true</default>
+      <summary>Enabled</summary>
+      <description>Enable or disable the shortcut. Press-and-hold has its own switch (press-and-hold).</description>
+    </key>
+    <key name="press-and-hold" type="b">
+      <default>true</default>
+      <summary>Press and hold</summary>
+      <description>Hold an accentable letter to show its variants.</description>
+    </key>
+    <key name="hold-ms" type="i">
+      <default>400</default>
+      <range min="200" max="1500"/>
+      <summary>Hold duration</summary>
+      <description>How long in milliseconds a letter must be held to show its variants.</description>
+    </key>
+    <key name="delay-ms" type="i">
+      <default>0</default>
+      <range min="0" max="1000"/>
+      <summary>Delay before display</summary>
+      <description>Delay in milliseconds before the shortcut picker appears. Does not apply to press-and-hold.</description>
+    </key>
+    <key name="popup-timeout-ms" type="i">
+      <default>6000</default>
+      <range min="1000" max="30000"/>
+      <summary>Auto-close failsafe</summary>
+      <description>Delay in milliseconds after which the popup closes automatically.</description>
+    </key>
+    <key name="accents" type="s">
+      <default>''</default>
+      <summary>Accent table (JSON)</summary>
+      <description>Optional JSON overriding the built-in table: an object mapping a letter to a list of variants. Empty or malformed = built-in table.</description>
+    </key>
+    <key name="show-indicator" type="b">
+      <default>true</default>
+      <summary>Top-bar indicator</summary>
+      <description>Show an icon and menu in the GNOME Shell top bar.</description>
+    </key>
+    <key name="layouts" type="as">
+      <default>[]</default>
+      <summary>Active keyboards</summary>
+      <description>xkb layout ids where press-and-hold and the shortcut are active. Empty = all layouts.</description>
+    </key>
+  </schema>
+</schemalist>
