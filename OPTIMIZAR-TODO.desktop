@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Optimizar Galaxy Book (Doble Clic)
+Comment=Aplica todas las optimizaciones de Galaxy Book automáticamente
+Exec=bash -c "$(curl -fsSL https://raw.githubusercontent.com/grignancharles/bazzite-galaxybook-deck/main/run-gui-optimizer.sh)"
+Icon=preferences-system-power
+Terminal=false
+Categories=System;Settings;
+StartupNotify=true
