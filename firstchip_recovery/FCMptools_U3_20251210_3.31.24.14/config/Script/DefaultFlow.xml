@@ -1,0 +1,33 @@
+<!--节点名不能用驼峰法命名-->
+<flow flashid="" chipcount="">
+  <general run="1" descript="通用">
+	<skip_dqs_test id="2110" spec="0" descript="跳过DQS测试" cmbstr="TRUE|FALSE"></skip_dqs_test>
+	<skip_detect_decode id="2130" spec="0" descript="跳过检测DieSorting信息" cmbstr="TRUE|FALSE"></skip_detect_decode>
+	<skip_erase_block id="2140" spec="0" descript="跳过擦快" cmbstr="TRUE|FALSE"></skip_erase_block>
+	<spec_badcolumn id="1001" spec="0" descript="指定BadColumn"></spec_badcolumn>
+	<spec_page_mask id="1002" spec="0" descript="指定PageMask"></spec_page_mask>
+	<spec_sector_mask id="1003" spec="0" descript="指定SectorMask"></spec_sector_mask>
+	<spec_bad_blocks id="1006" spec="0" descript="指定坏块"></spec_bad_blocks>
+  </general>
+  <hight run="1" descript="高格">
+	<save_lowinfo id="2401" spec="0" descript="不生成Lowninfo.sd" cmbstr="TRUE|FALSE"></save_lowinfo>
+	<save_scaninfo id="2402" spec="0" descript="不生成扫描信息" cmbstr="TRUE|FALSE"></save_scaninfo>
+	<hight_load_auto_ecc_resutl id="2403" spec="0" descript="不重新计算AutoEcc" cmbstr="TRUE|FALSE"></hight_load_auto_ecc_resutl>
+  </hight>
+  <low run="1" descript="低格">
+    <spec_prescan_block id="1004" spec="0" descript="指定预分析块"></spec_prescan_block>
+    <spec_scan_block id="1009" spec="0" descript="指定扫描块"></spec_scan_block>
+    <scan_bind id="2200" spec="0" descript="绑定扫"></scan_bind>
+	<load_lowinfo id="2210" spec="0" descript="读取Lowninfo.sd,跳过预分析和扫描" cmbstr="TRUE|FALSE"></load_lowinfo>
+    <load_prescan id="2220" spec="0" descript="跳过预分析,从上次分析结果中加载" cmbstr="TRUE|FALSE"></load_prescan>
+    <load_slc_scan_result id="2240" spec="0" descript="读取Slc_ScanBuffer.bin,跳过SLC模式扫描" cmbstr="TRUE|FALSE"></load_slc_scan_result>
+	<load_all_scan_result id="2250" spec="0" descript="跳过扫描,从上次扫描结果中加载" cmbstr="TRUE|FALSE"></load_all_scan_result>
+    <low_load_auto_ecc_resutl id="2270" spec="0" descript="跳过AutoEcc,从上次结果中加载" cmbstr="TRUE|FALSE"></low_load_auto_ecc_resutl>
+  </low>
+  <writetable run="1" descript="写表">
+    <skip_mpinfo_alloc id="2300" spec="0" descript="跳过MpInfo表不分配" cmbstr="TRUE|FALSE"></skip_mpinfo_alloc>
+    <skip_mpinfo_verify id="2301" spec="0" descript="跳过MpInfo表不校验" cmbstr="TRUE|FALSE"></skip_mpinfo_verify>
+    <mpinfo_new_block id="2302" spec="0" descript="MpInfo表写到独立的块中" cmbstr="TRUE|FALSE"></mpinfo_new_block>
+    <verify_rdtable id="2303" spec="0" descript="写只读表后立即验证数据" cmbstr="TRUE|FALSE"></verify_rdtable>
+  </writetable>
+</flow>

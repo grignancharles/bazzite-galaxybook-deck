@@ -1,0 +1,54 @@
+================================================================================
+GUÍA RÁPIDA: RECUPERAR USB FIRSTCHIP FC3281 / ZC3281 (0 BYTES / ROM MODE)
+================================================================================
+
+EL PROBLEMA:
+Tu memoria USB muestra VID 0x346D, PID 0x3281, Serial 012345678901 y 0 bytes.
+Esto ocurre cuando el firmware del controlador se corrompe y el chip entra en
+"ROM Code Mode" (Modo de fábrica de emergencia). En este estado NO expone la
+interfaz SCSI de almacenamiento estándar, por lo que Windows no puede formatearla
+y las herramientas comunes (Diskpart, Rufus, etc.) fallan.
+
+LA SOLUCIÓN (100% EFECTIVA):
+El controlador FirstChip está diseñado para ser reprogramado en este mismo modo
+utilizando la herramienta oficial de fábrica de FirstChip (FirstChip U3 MpTool).
+
+PASOS EN WINDOWS 11:
+-------------------
+1. Abre la carpeta:
+   firstchip_recovery\FCMptools_U3_20241101_3.10.14.8\
+
+2. Haz clic derecho en "MpTools.exe" y selecciona "Ejecutar como administrador".
+   (También puedes hacer doble clic en ABRIR_MPTOOL.bat).
+
+3. Conecta tu memoria USB FirstChip en un puerto USB (preferiblemente USB 2.0).
+
+4. En la interfaz gráfica del programa verás una cuadrícula de puertos numerados.
+   El puerto donde conectaste el pendrive se iluminará en color AMARILLO o VERDE
+   mostrando el tipo de memoria Flash ID detectado (Micron, SanDisk, Kioxia, etc.).
+
+5. Haz clic en el botón grande "Start" (o pulsa la barra espaciadora).
+   - El programa cargará el microcódigo en la SRAM del controlador.
+   - Escaneará los bloques defectuosos (Bad Blocks).
+   - Escribirá el firmware oficial nuevo en los bloques reservados de la NAND.
+   - Formateará la partición a bajo nivel.
+
+6. Espera entre 1 y 3 minutos hasta que el recuadro del puerto se ponga en color
+   VERDE con la palabra "PASS" / "OK" y muestre la capacidad real (ej. 32GB, 64GB).
+
+7. Desconecta y vuelve a conectar tu pendrive. ¡Listo! Ya funciona normalmente.
+
+--------------------------------------------------------------------------------
+PREGUNTAS FRECUENTES Y CONFIGURACIÓN:
+--------------------------------------------------------------------------------
+¿Pide contraseña al hacer clic en "Setting"?
+- La contraseña viene VACÍA por defecto. Simplemente deja el campo en blanco
+  y haz clic en "OK".
+
+¿Qué hacer si el recuadro sale en ROJO (Fail / Error)?
+- Prueba la versión más reciente en:
+  firstchip_recovery\FCMptools_U3_20251210_3.31.24.14\
+- O en "Setting", en Scan Mode, selecciona "Fast Scan" o "Normal Scan".
+- Si necesitas verificar el tipo de chip NAND antes de flashear, ejecuta:
+  firstchip_recovery\ChipGenius_v4_21_0701\ChipGenius_v4_21_0701.exe
+================================================================================
