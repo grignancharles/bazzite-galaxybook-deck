@@ -107,6 +107,63 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+# 2.1 AGGRESSIVE GAME BOOSTER & PROCESS TRIMMER
+echo "→ Instalando Game Booster (Limpieza de RAM y congelamiento de procesos de fondo)..."
+cat << 'EOF' > /usr/libexec/galaxybook-game-booster.sh
+#!/bin/bash
+set -u
+log() { logger -t "galaxybook-booster" "$1"; echo "[$(date '+%H:%M:%S')] [BOOSTER] $1"; }
+BACKGROUND_SERVICES=("packagekit" "cups" "cups-browsed" "geoclue")
+BACKGROUND_PROCESSES=("baloo_file" "tracker-miner-fs" "tracker-extract" "evolution-calendar-factory")
+
+is_game_running() { pgrep -f "pressure-vessel|wine64-preloader|wineserver|steamapps/common" >/dev/null 2>&1; }
+
+boost_game_start() {
+    log "🚀 Juego detectado. Congelando tareas de fondo y purgando RAM..."
+    for p in "${BACKGROUND_PROCESSES[@]}"; do pkill -STOP -f "$p" 2>/dev/null || true; done
+    for s in "${BACKGROUND_SERVICES[@]}"; do systemctl stop "$s.service" 2>/dev/null || true; done
+    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
+    for pid in $(pgrep -f "pressure-vessel|wine64-preloader|steamapps/common"); do
+        renice -n -10 -p "$pid" 2>/dev/null || true
+        ionice -c 1 -n 0 -p "$pid" 2>/dev/null || true
+    done
+}
+
+boost_game_stop() {
+    log "🏁 Juego cerrado. Reanudando procesos y servicios de fondo..."
+    for p in "${BACKGROUND_PROCESSES[@]}"; do pkill -CONT -f "$p" 2>/dev/null || true; done
+    for s in "${BACKGROUND_SERVICES[@]}"; do systemctl start "$s.service" 2>/dev/null || true; done
+}
+
+IS_BOOSTED=0
+while true; do
+    if is_game_running; then
+        [ "$IS_BOOSTED" -eq 0 ] && { boost_game_start; IS_BOOSTED=1; }
+    else
+        [ "$IS_BOOSTED" -eq 1 ] && { boost_game_stop; IS_BOOSTED=0; }
+    fi
+    sleep 3
+done
+EOF
+chmod +x /usr/libexec/galaxybook-game-booster.sh
+
+cat << 'EOF' > /etc/systemd/system/galaxybook-game-booster.service
+[Unit]
+Description=Galaxy Book Game Booster & Aggressive Process Trimmer Daemon
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/galaxybook-game-booster.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # 3. FALLBACK GLOBAL DE MESH SHADERS Y DIRECTX 12 (VKD3D Y DXVK)
 echo "→ 3/8 Configurando fallback global de Mesh Shaders a nivel de sistema..."
 cat << 'EOF' > /etc/vkd3d.conf
@@ -302,6 +359,7 @@ fi
 echo "→ 10/10 Activando servicios del sistema..."
 systemctl daemon-reload
 systemctl enable --now galaxybook-power-optimizer.service || true
+systemctl enable --now galaxybook-game-booster.service || true
 systemctl enable --now galaxybook-audio-fix.service || true
 systemctl enable --now galaxybook-iphone-tunnel.service || true
 

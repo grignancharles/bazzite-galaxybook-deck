@@ -1,0 +1,15 @@
+[Unit]
+Description=Galaxy Book Game Booster & Aggressive Process Trimmer Daemon
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/galaxybook-game-booster.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
