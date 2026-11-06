@@ -175,7 +175,13 @@ d3d12.noUploadHvv = true
 EOF
 
 cat << 'EOF' > /etc/dxvk.conf
-# Configuración Global de DXVK (DirectX 11) para Intel Iris Xe 96EUs
+# Configuración Global de DXVK (DirectX 9/10/11) para Intel Iris Xe 96EUs
+# Reporta 4GB / 6GB de VRAM real para evitar el error de "128MB de VRAM" del BIOS
+dxgi.customVendorId = 8086
+dxgi.customDeviceId = 9a49
+dxgi.customDeviceMemory = 4096
+dxgi.maxDeviceMemory = 4096
+dxgi.showVramUsage = false
 dxvk.enableAsync = true
 dxvk.numCompilerThreads = 4
 d3d11.maxTessFactor = 8
@@ -195,6 +201,9 @@ export VKD3D_CONFIG_FILE=/etc/vkd3d.conf
 export VKD3D_CONFIG=no_upload_hvv,force_static_cbv
 export VKD3D_FEATURE_LEVEL=12_1
 export VKD3D_DISABLE_EXTENSIONS="VK_EXT_mesh_shader"
+export VKD3D_VRAM_SIZE_MB=4096
+export PROTON_FORCE_LARGE_ADDRESS_AWARE=1
+export PROTON_ENABLE_NVAPI=0
 
 # Configuración Universal de Renderizado 720p -> 1080p con Intel XeSS (DP4a)
 export INTEL_XESS_DP4A=1
